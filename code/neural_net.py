@@ -141,7 +141,7 @@ def predict(model, x_test, y_test, x_outer):
     # return prediction on outer test set and loss on internal test set
     return y_outer_pred, loss
 
-def plot_learning_curve(history_dic, start_epoch=1, end_epoch = 200, savefig=False):
+def plot_learning_curve(history_dic, start_epoch=1, end_epoch=400, savefig=False):
 
     lgd = ['loss TR']
     plt.plot(range(start_epoch, end_epoch), history_dic['loss'][start_epoch:])
@@ -156,11 +156,11 @@ def plot_learning_curve(history_dic, start_epoch=1, end_epoch = 200, savefig=Fal
     plt.legend(lgd)
 
     if savefig:
-        plt.savefig("NN_Keras.pdf", transparent = True)
+        plt.savefig("plot/NN_Keras.pdf", transparent = True)
     plt.show()
 
 
-def keras_network(model_selection = False, n_splits=5, epochs = 200):
+def keras_network(model_selection = False, n_splits=5, epochs = 400):
     logger.info("Initializing Keras...")
     # getting the absolute path to te file through utils function abs_path 
     filepath = abs_path("ML-CUP24-TR.csv", "data")
@@ -235,7 +235,7 @@ def keras_network(model_selection = False, n_splits=5, epochs = 200):
         # plotting actual vs predicted target values
         for j in range(3):  # lopping over each target dimension
             ax[j].scatter(y_val[:, j], y_pred[:, j], alpha=0.5, color=colors[i],
-                        label=f'Fold {i} - Target {j+1} - MEE = {np.round(mee_scores[i-1], 2)}')
+                        label=f'Fold {i} - MEE = {np.round(mee_scores[i-1], 2)}')
             ax[j].plot([y_val[:, j].min(), y_val[:, j].max()], 
                     [y_val[:, j].min(), y_val[:, j].max()], 'k--', lw=2)  # Ideal line y=x
             ax[j].legend()
@@ -252,8 +252,7 @@ def keras_network(model_selection = False, n_splits=5, epochs = 200):
 
     logger.info("Computation with Keras successfully ended!")
 
-    fig.savefig('Keras_predictions.pdf', transparent=True)
-    plot_learning_curve(history_dic= history.history, savefig=True)
+    plot_learning_curve(history_dic= history.history, end_epoch = epochs, savefig=True)
     w_csv(y_pred_outer)
 
 

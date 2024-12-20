@@ -183,7 +183,7 @@ def w_csv(data):
             writer.writerow(["# Valerio Caporioni, Jacopo Resasco, Lavinia Rotellini"])
             writer.writerow([f"# {teamname}"])
             writer.writerow(["# ML-CUP24 V1"])
-            writer.writerow(["03/01/2025"])
+            writer.writerow(["# 03/01/2025"])
 
             for i, point in enumerate(data, start=1):
                 writer.writerow([i] + point)
