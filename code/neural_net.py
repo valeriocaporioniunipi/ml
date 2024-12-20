@@ -11,7 +11,7 @@ from sklearn.model_selection import KFold, GridSearchCV
 from sklearn.preprocessing import StandardScaler
 from scikeras.wrappers import KerasRegressor
 
-from utils import abs_path, get_data, euclidean_error, mean_euclidean_error, scorer 
+from utils import abs_path, get_data, get_outer, euclidean_error, mean_euclidean_error, scorer, w_csv 
 
 # random seed 
 seed = 42
@@ -69,7 +69,7 @@ def create_nn(input_shape,
         model.add(layers.Dropout(dropout))
         model.add(layers.BatchNormalization())
 
-    model.add(layers.Dense(1, activation='linear'))  # Output layer of a regression problem
+    model.add(layers.Dense(3, activation='linear'))  # Output layer of a regression problem
 
     # Adding optimizer for the model:
     optimizer = optimizers.SGD(learning_rate=eta, momentum=alpha)
@@ -124,7 +124,7 @@ def model_selection(features, targets, n_splits, epochs):
 
     # elapsed time
     end_time =  time.time() 
-    elapsed_time = end_time- start_time
+    elapsed_time = end_time - start_time
     logger.info(f"Grid search concluded {elapsed_time}")
     best_params = grid_result.best_params_
     # summarizing results
@@ -134,19 +134,19 @@ def model_selection(features, targets, n_splits, epochs):
 def predict(model, x_test, y_test, x_outer):
     # predict on internal test set of data
     y_pred = model.predict(x_test)
-    loss = mean_euclidean_error(y_test, y_pred)
+    loss = euclidean_error(y_test, y_pred)
     # predict on an outer test set
     y_outer_pred = model.predict(x_outer)
 
     # return prediction on outer test set and loss on internal test set
     return y_outer_pred, loss
 
-def plot_learning_curve(history, start_epoch=1, end_epoch = 200, savefig=False):
+def plot_learning_curve(history_dic, start_epoch=1, end_epoch = 200, savefig=False):
 
     lgd = ['loss TR']
-    plt.plot(range(start_epoch, end_epoch), history['loss'][start_epoch:])
-    if "val_loss" in history:
-        plt.plot(range(start_epoch, end_epoch), history['val_loss'][start_epoch:])
+    plt.plot(range(start_epoch, end_epoch), history_dic['loss'][start_epoch:])
+    if "val_loss" in history_dic:
+        plt.plot(range(start_epoch, end_epoch), history_dic['val_loss'][start_epoch:])
         lgd.append('loss VL')
 
     plt.xlabel("epoch")
@@ -160,13 +160,13 @@ def plot_learning_curve(history, start_epoch=1, end_epoch = 200, savefig=False):
     plt.show()
 
 
-def keras_network(model_selection = True, n_splits=5, epochs = 200):
+def keras_network(model_selection = False, n_splits=5, epochs = 200):
     logger.info("Initializing Keras...")
     # getting the absolute path to te file through utils function abs_path 
     filepath = abs_path("ML-CUP24-TR.csv", "data")
     # extracting features and targets from csv
-    features, targets, features_test, targets_test = get_data(filepath)
-    # Standardization of features
+    features, targets, features_test, targets_test = get_data(filepath, split = True)
+    # Standardization of features, features will be standardized after k-folding
     scaler = StandardScaler()
     # definition of the k-folding
     kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
@@ -180,20 +180,22 @@ def keras_network(model_selection = True, n_splits=5, epochs = 200):
     # the model is now created
     model = create_nn(input_shape = np.shape(features[0]),
         eta = params["eta"],
-        alpha = params["model__alpha"],
-        lmb = params["model__lmb"],
+        alpha = params["alpha"],
+        lmb = params["lmb"],
         summary = True)
 
+    # initial weights are stored in order to allow future refresh
     initial_weights = model.get_weights()
+    # initialization of best model: the one with best score is taken
     best_model = None
     history = None
     mee_scores = []
     mee_best = float('inf')
 
-    # Initialize plots for target values
+    # initialization of plots for target values
     colormap = cmaps.get_cmap('tab20')
     colors = [colormap(i) for i in range(n_splits + 1)]
-    # prepare 2x2 grid for 3 plots
+    # preparing the 3 plots
     fig, ax = plt.subplots(2, 2, figsize=(12, 12))  # 2 rows, 2 columns grid
     ax = ax.flatten()  # flattening to make it easier to access the axes
 
@@ -210,16 +212,18 @@ def keras_network(model_selection = True, n_splits=5, epochs = 200):
         x_train, x_val = features[train_index], features[test_index]
         y_train, y_val = targets[train_index], targets[test_index]
 
-        # Standardize features after the split
+        # standardizing features after the split
         x_train = scaler.fit_transform(x_train)
         x_val = scaler.transform(x_val)
 
+        # refreshing the weights
         model.set_weights(initial_weights)
         fit = model.fit(x_train, y_train, epochs=epochs, batch_size=params["batch_size"],
                             validation_data=(x_val, y_val), verbose=0)
 
+        # prediction of the validation targets
         y_pred = model.predict(x_val)
-
+        # computation of the mean euclidean error
         mee = mean_euclidean_error(y_val, y_pred)
         mee_scores.append(mee)
 
@@ -228,22 +232,36 @@ def keras_network(model_selection = True, n_splits=5, epochs = 200):
             best_model = model
             history = fit
 
-        # Plotting actual vs predicted for each target dimension
-        for j in range(3):  # Loop over each target dimension
+        # plotting actual vs predicted target values
+        for j in range(3):  # lopping over each target dimension
             ax[j].scatter(y_val[:, j], y_pred[:, j], alpha=0.5, color=colors[i],
                         label=f'Fold {i} - Target {j+1} - MEE = {np.round(mee_scores[i-1], 2)}')
             ax[j].plot([y_val[:, j].min(), y_val[:, j].max()], 
                     [y_val[:, j].min(), y_val[:, j].max()], 'k--', lw=2)  # Ideal line y=x
             ax[j].legend()
         
-        # fig.savefig('Keras_predictions.pdf', transparent=True)
-        plot_learning_curve(history= history, savefig=True)
+    tr_losses = history.history['loss']
+    val_losses = history.history['val_loss']
+
+    y_pred_outer, internal_losses = predict(model=model, x_test= features_test,
+                                y_test= targets_test, x_outer=get_outer(abs_path("ML-CUP24-TS.csv", "data")))
+
+    print("TR Loss: ", tr_losses[-1])
+    print("VL Loss: ", val_losses[-1])
+    print("TS Loss: ", np.mean(internal_losses))
+
+    logger.info("Computation with Keras successfully ended!")
+
+    fig.savefig('Keras_predictions.pdf', transparent=True)
+    plot_learning_curve(history_dic= history.history, savefig=True)
+    w_csv(y_pred_outer)
 
 
 
 
 
-def training(features, targets, model, epochs, batch_size, n_splits = 5):
+
+
     """
     Train the neural network with k-fold cross-validation for multi-output regression.
     :param features: Feature matrix
@@ -261,83 +279,10 @@ def training(features, targets, model, epochs, batch_size, n_splits = 5):
 
     :return: best model, mean absolute error, r2 score, residuals (prediction errors)
     """
-    # Standardization of features
-    scaler = StandardScaler()
-    kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
-
-    _, axh = plt.subplots(figsize=(10, 8))
-    _, axp = plt.subplots(figsize=(10, 8))
-
-    colormap = cmaps.get_cmap('tab20')
-    colors = [colormap(i) for i in range(n_splits + 1)]
-
-    initial_weights = model.get_weights()
-    best_model = None
-    mee_scores = []
-    mee_best = float('inf')
 
 
-    # prepare 2x2 grid for 3 plots
-    fig, ax = plt.subplots(2, 2, figsize=(12, 12))  # 2 rows, 2 columns grid
-    ax = ax.flatten()  # flattening to make it easier to access the axes
-
-    # leave the last subplot empty
-    for i in range(3):  # loop for 3 targets
-        ax[i].set_visible(True)  # make sure the axes are visible for the first 3 plots
-        ax[i].set_xlabel('Actual')
-        ax[i].set_ylabel('Predicted')
-        ax[i].set_title(f'Target {i+1} - Actual vs Predicted')
-    # hide the last axis (empty subplot)
-    ax[3].set_xlabel('loss')
-
-    for i, (train_index, test_index) in enumerate(kf.split(features), 1):
-        x_train, x_val = features[train_index], features[test_index]
-        y_train, y_val = targets[train_index], targets[test_index]
-
-        # Standardize features after the split
-        x_train = scaler.fit_transform(x_train)
-        x_val = scaler.transform(x_val)
-
-        model.set_weights(initial_weights)
-        history = model.fit(x_train, y_train, epochs=epochs, batch_size=batch_size,
-                            validation_data=(x_val, y_val), verbose=0)
-
-        y_pred = model.predict(x_val)
-
-        mee = mean_euclidean_error(y_val, y_pred)
-        mee_scores.append(mee)
-
-        if mee < mee_best:
-            mee_best = mee
-            best_model = model
-
-        # Plotting actual vs predicted for each target dimension
-        for j in range(3):  # Loop over each target dimension
-            ax[j].scatter(y_val[:, j], y_pred[:, j], alpha=0.5, color=colors[i],
-                        label=f'Fold {i} - Target {j+1} - MEE = {np.round(mee_scores[i-1], 2)}')
-            ax[j].plot([y_val[:, j].min(), y_val[:, j].max()], 
-                    [y_val[:, j].min(), y_val[:, j].max()], 'k--', lw=2)  # Ideal line y=x
-            ax[j].legend()
-    
-    mee = np.mean(mee_scores)
-
-        axh.set_xlabel("epoch")
-        axh.set_ylabel("loss [log]")
-        axh.set_title(f"TL over {epochs} epochs")
-        axh.set_yscale('log')
-        axh.legend()
-        target_range = [targets.min(), targets.max()]
-        axp.plot(target_range, target_range, 'k--', lw=2)
-        axp.set_xlabel('data')
-        axp.set_ylabel('prediction')
-        axp.set_title('Actual vs predicted values')
-        axp.legend(loc='upper left')
-        axp.grid(False)
-
-    return best_model, mee, history
-
-
-
+if __name__ == '__main__':
+    keras_network()
 
 
 
