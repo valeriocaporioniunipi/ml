@@ -3,10 +3,12 @@ Utils
 """
 
 import os
+import csv
 
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+from sklearn.metrics import make_scorer
 from loguru import logger
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import make_scorer
@@ -165,11 +167,7 @@ def euclidean_error(y_true, y_pred):
 def mean_euclidean_error(y_true, y_pred):
     return np.mean(euclidean_error(y_true, y_pred))
 
-
-def scorer():
-    make_scorer(mean_euclidean_error, greater_is_better=False)
-
-import csv
+scorer = make_scorer(mean_euclidean_error, greater_is_better=False)
 
 def w_csv(data):
     teamname = "DUNEDAIN"

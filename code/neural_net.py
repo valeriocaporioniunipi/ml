@@ -87,6 +87,7 @@ def create_nn(input_shape,
 
 def model_selection(features, targets, n_splits, epochs):
     input_shape = np.shape(features[0])
+    model = KerasRegressor(model=create_nn, input_shape = input_shape, epochs=epochs, batch_size=16, verbose=0)
 
     # grid search parameters
     eta = np.arange(start=0.003, stop=0.01, step=0.001)
@@ -98,15 +99,8 @@ def model_selection(features, targets, n_splits, epochs):
     lmb = np.arange(start=0.0005, stop=0.001, step=0.0001)
     lmb = [float(round(i, 4)) for i in list(lmb)]
 
-    batch_size = [16, 32, 64]
+    param_grid = dict(model__eta=eta, model__alpha=alpha, model__lmb=lmb)
 
-    param_grid = dict(eta=eta, alpha=alpha, lmb=lmb, batch_size=batch_size)
-
-
-    model = KerasRegressor(model=lambda hidden_layers, hidden_nodes,dropout, eta, alpha, lmb:
-        create_nn(input_shape, hidden_layers=hidden_layers, hidden_nodes=hidden_nodes,
-        dropout=dropout, eta = eta, alpha = alpha, lmb = lmb), epochs=epochs, verbose=0)
-    
     # k-folding definition
     kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
 
@@ -160,7 +154,7 @@ def plot_learning_curve(history_dic, start_epoch=1, end_epoch=400, savefig=False
     plt.show()
 
 
-def keras_network(model_selection = False, n_splits=5, epochs = 400):
+def keras_network(ms = True, n_splits=5, epochs = 400):
     logger.info("Initializing Keras...")
     # getting the absolute path to te file through utils function abs_path 
     filepath = abs_path("ML-CUP24-TR.csv", "data")
@@ -172,7 +166,7 @@ def keras_network(model_selection = False, n_splits=5, epochs = 400):
     kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
 
     # model selection or manual adjustments
-    if model_selection:
+    if ms:
         params = model_selection(features, targets, n_splits=n_splits, epochs=epochs)
     else:
         params = dict(eta=0.002, lmb=0.0001, alpha=0.7, epochs=200, batch_size=64)
