@@ -257,29 +257,6 @@ def keras_network(model_selection = False, n_splits=5, epochs = 400):
 
 
 
-
-
-
-
-    """
-    Train the neural network with k-fold cross-validation for multi-output regression.
-    :param features: Feature matrix
-    :type features: numpy.darray
-    :param targets: 3D target array (n_samples, 3)
-    :type targets: numpy.darray
-    :param model: Keras model
-    :type model: Sequential
-    :param epochs: number of epochs to train the model
-    :type epochs: int
-    :param plot: set to True to show the "predicted vs actual" plots
-    :type plot: Bool
-    :param n_splits: optional (default = 5): n_splits for k-fold
-    :type n_splits: int 
-
-    :return: best model, mean absolute error, r2 score, residuals (prediction errors)
-    """
-
-
 if __name__ == '__main__':
     keras_network()
 

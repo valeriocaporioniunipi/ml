@@ -186,7 +186,9 @@ def w_csv(data):
             writer.writerow(["# 03/01/2025"])
 
             for i, point in enumerate(data, start=1):
-                writer.writerow([i] + point)
+                if len(point) == 3:  # Ensure each point has 3 dimensions
+                    # Write the id and dimensions in the same row
+                    writer.writerow([i, point[0], point[1], point[2]])
 
         logger.info(f"CSV file '{filename}' written successfully!")
     except Exception as e:
