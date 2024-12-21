@@ -167,9 +167,11 @@ def keras_network(ms = True, n_splits=5, epochs = 400):
 
     # model selection or manual adjustments
     if ms:
+        logger.info("Choosing hyperparameters with a GridSearch")
         params = model_selection(features, targets, n_splits=n_splits, epochs=epochs)
     else:
-        params = dict(eta=0.002, lmb=0.0001, alpha=0.7, epochs=200, batch_size=64)
+        params = dict(model__eta=0.002, model__lmb=0.0001, model__alpha=0.7, model__epochs=200, model__batch_size=64)
+        logger.info(f"Parameters has been choosen manually: {params}")
     
     # the model is now created
     model = create_nn(input_shape = np.shape(features[0]),
