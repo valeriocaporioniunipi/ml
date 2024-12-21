@@ -173,9 +173,9 @@ def keras_network(ms = True, n_splits=5, epochs = 400):
     
     # the model is now created
     model = create_nn(input_shape = np.shape(features[0]),
-        eta = params["eta"],
-        alpha = params["alpha"],
-        lmb = params["lmb"],
+        eta = params["model__eta"],
+        alpha = params["model__alpha"],
+        lmb = params["model__lmb"],
         summary = True)
 
     # initial weights are stored in order to allow future refresh
@@ -212,7 +212,7 @@ def keras_network(ms = True, n_splits=5, epochs = 400):
 
         # refreshing the weights
         model.set_weights(initial_weights)
-        fit = model.fit(x_train, y_train, epochs=epochs, batch_size=params["batch_size"],
+        fit = model.fit(x_train, y_train, epochs=epochs,
                             validation_data=(x_val, y_val), verbose=0)
 
         # prediction of the validation targets
