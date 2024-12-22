@@ -90,13 +90,16 @@ def model_selection(features, targets, n_splits, epochs):
     model = KerasRegressor(model=create_nn, input_shape = input_shape, epochs=epochs, batch_size=16, verbose=0)
 
     # grid search parameters
-    eta = np.arange(start=0.003, stop=0.01, step=0.001)
+    #eta = np.arange(start=0.003, stop=0.01, step=0.001)
+    eta = [0.005, 0.05, 0.5]
     eta = [float(round(i, 4)) for i in list(eta)]
 
-    alpha = np.arange(start=0.4, stop=1, step=0.1)
+    #alpha = np.arange(start=0.4, stop=1, step=0.1)
+    alpha = [0.2, 0.4, 0.6, 0.8]
     alpha = [float(round(i, 1)) for i in list(alpha)]
 
-    lmb = np.arange(start=0.0005, stop=0.001, step=0.0001)
+    #lmb = np.arange(start=0.0005, stop=0.001, step=0.0001)
+    lmb = [0.0001, 0.001, 0.01]
     lmb = [float(round(i, 4)) for i in list(lmb)]
 
     batch_size = [8, 16, 32]
@@ -156,7 +159,7 @@ def plot_learning_curve(history_dic, start_epoch=1, end_epoch=400, savefig=False
     plt.show()
 
 
-def keras_network(ms = True, n_splits=5, epochs = 400):
+def keras_network(ms = False, n_splits=5, epochs = 400):
     logger.info("Initializing Keras...")
     # getting the absolute path to te file through utils function abs_path 
     filepath = abs_path("ML-CUP24-TR.csv", "data")
@@ -172,8 +175,8 @@ def keras_network(ms = True, n_splits=5, epochs = 400):
         logger.info("Choosing hyperparameters with a GridSearch")
         params = model_selection(features, targets, n_splits=n_splits, epochs=epochs)
     else:
-        params = dict(model__eta=0.002, model__lmb=0.0001, model__alpha=0.7, model__epochs=200, model__batch_size=64)
-        logger.info(f"Parameters has been choosen manually: {params}")
+        params = dict(model__eta=0.002, model__lmb=0.007, model__alpha=0.4, model__epochs=200, model__batch_size=3)
+        logger.info(f"Parameters have been chosen manually: {params}")
     
     # the model is now created
     model = create_nn(input_shape = np.shape(features[0]),
@@ -234,7 +237,7 @@ def keras_network(ms = True, n_splits=5, epochs = 400):
         # plotting actual vs predicted target values
         for j in range(3):  # lopping over each target dimension
             ax[j].scatter(y_val[:, j], y_pred[:, j], alpha=0.5, color=colors[i],
-                        label=f'Fold {i} - MEE = {np.round(mae[j], 2)}')
+                        label=f'Fold {i} - MAE = {np.round(mae[j], 2)}')
             ax[j].plot([y_val[:, j].min(), y_val[:, j].max()], 
                     [y_val[:, j].min(), y_val[:, j].max()], 'k--', lw=2)  # Ideal line y=x
             ax[j].legend()
