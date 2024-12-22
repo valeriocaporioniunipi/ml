@@ -1,5 +1,6 @@
 import time
 import numpy as np
+import tensorflow as tf
 from loguru import logger
 from matplotlib import pyplot as plt
 from matplotlib import colormaps as cmaps
@@ -20,7 +21,6 @@ np.random.seed(seed)
 def create_nn(input_shape,
                   hidden_layers = 3,
                   hidden_nodes = 32,
-                  dropout = 0.00,
                   summary = False,
                   activation = 'relu',
                   eta = 0.002,
@@ -58,16 +58,14 @@ def create_nn(input_shape,
 
     model = Sequential() # Defining the model
     model.add(layers.Input(shape=input_shape)) # Placing an input layer
-    model.add(layers.Dropout(dropout)) # Placing dropout layer
-    model.add(layers.BatchNormalization()) # BatchNormalization layer
+    #model.add(layers.BatchNormalization()) # BatchNormalization layer
 
     # Adding variable number of hidden layers (Dense+Dropout+BatchNormalization)
     for _ in range(hidden_layers):
         model.add(layers.Dense(hidden_nodes, activation=activation,
                                 kernel_initializer=init_mode,
                                 kernel_regularizer=regularizers.L2(lmb)))
-        model.add(layers.Dropout(dropout))
-        model.add(layers.BatchNormalization())
+        #model.add(layers.BatchNormalization())
 
     model.add(layers.Dense(3, activation='linear'))  # Output layer of a regression problem
 
@@ -75,7 +73,7 @@ def create_nn(input_shape,
     optimizer = optimizers.SGD(learning_rate=eta, momentum=alpha)
 
     # Compiling the model
-    model.compile(loss=euclidean_error, optimizer=optimizer, metrics=[euclidean_error])
+    model.compile(loss=euclidean_error, optimizer=optimizer, metrics=[mean_euclidean_error])
 
     # Printing summary, if specified
     if summary:
@@ -99,10 +97,10 @@ def model_selection(features, targets, n_splits, epochs):
     alpha = [float(round(i, 1)) for i in list(alpha)]
 
     #lmb = np.arange(start=0.0005, stop=0.001, step=0.0001)
-    lmb = [0.0001, 0.001, 0.01]
+    lmb = [0.00005, 0.0001, 0.001, 0.01]
     lmb = [float(round(i, 4)) for i in list(lmb)]
 
-    batch_size = [8, 16, 32]
+    batch_size = [32, 64, 128]
 
     param_grid = dict(model__eta=eta, model__alpha=alpha, model__lmb=lmb, batch_size = batch_size)
 
@@ -250,22 +248,12 @@ def keras_network(ms = False, n_splits=5, epochs = 400):
 
     print("TR Loss: ", tr_losses[-1])
     print("VL Loss: ", val_losses[-1])
-    print("TS Loss: ", np.mean(internal_losses))
+    print("TS Loss: ", tf.reduce_mean(internal_losses))
 
     logger.info("Computation with Keras successfully ended!")
 
     plot_learning_curve(history_dic= history.history, end_epoch = epochs, savefig=True)
     w_csv(y_pred_outer)
 
-
-
 if __name__ == '__main__':
     keras_network()
-
-
-
-
-
-
-
-

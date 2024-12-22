@@ -165,7 +165,7 @@ def euclidean_error(y_true, y_pred):
 
 # it retrieves the mean value of all the passed losses
 def mean_euclidean_error(y_true, y_pred):
-    return np.mean(euclidean_error(y_true, y_pred))
+    return tf.reduce_mean(euclidean_error(y_true, y_pred))
 
 scorer = make_scorer(mean_euclidean_error, greater_is_better=False)
 
