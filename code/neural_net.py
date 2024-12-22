@@ -99,13 +99,15 @@ def model_selection(features, targets, n_splits, epochs):
     lmb = np.arange(start=0.0005, stop=0.001, step=0.0001)
     lmb = [float(round(i, 4)) for i in list(lmb)]
 
-    param_grid = dict(model__eta=eta, model__alpha=alpha, model__lmb=lmb)
+    batch_size = [8, 16, 32]
+
+    param_grid = dict(model__eta=eta, model__alpha=alpha, model__lmb=lmb, batch_size = batch_size)
 
     # k-folding definition
     kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
 
     grid = GridSearchCV(estimator=model, param_grid=param_grid, scoring=scorer, refit = False,
-        cv = kf, n_jobs = -1, return_train_score=True, verbose = 1)
+        cv = kf, n_jobs = 2, return_train_score=True, verbose = 1)
     
     # rescaling features
     scaler = StandardScaler()
@@ -222,6 +224,7 @@ def keras_network(ms = True, n_splits=5, epochs = 400):
         # computation of the mean euclidean error
         mee = mean_euclidean_error(y_val, y_pred)
         mee_scores.append(mee)
+        mae = np.mean(np.abs(y_val - y_pred), axis=0)
 
         if mee < mee_best:
             mee_best = mee
@@ -231,7 +234,7 @@ def keras_network(ms = True, n_splits=5, epochs = 400):
         # plotting actual vs predicted target values
         for j in range(3):  # lopping over each target dimension
             ax[j].scatter(y_val[:, j], y_pred[:, j], alpha=0.5, color=colors[i],
-                        label=f'Fold {i} - MEE = {np.round(mee_scores[i-1], 2)}')
+                        label=f'Fold {i} - MEE = {np.round(mae[j], 2)}')
             ax[j].plot([y_val[:, j].min(), y_val[:, j].max()], 
                     [y_val[:, j].min(), y_val[:, j].max()], 'k--', lw=2)  # Ideal line y=x
             ax[j].legend()
