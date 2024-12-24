@@ -5,13 +5,14 @@ Utils
 import os
 import csv
 
+import torch
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-from sklearn.metrics import make_scorer
 from loguru import logger
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import make_scorer
+from torch.nn.functional import pairwise_distance
 
 def abs_path(local_filename, data_folder):
     """
@@ -192,3 +193,6 @@ def w_csv(data):
     except Exception as e:
         logger.error(f"Error writing CSV file")
         raise Exception 
+
+def torch_mee(y_true, y_pred):
+    return torch.mean(pairwise_distance(y_true, y_pred, p=2))

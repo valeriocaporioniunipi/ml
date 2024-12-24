@@ -224,7 +224,7 @@ def keras_network(ms = False, n_splits=5, epochs = 400):
         y_pred = model.predict(x_val)
         # computation of the mean euclidean error
         mee = mean_euclidean_error(y_val, y_pred)
-        mee_scores.append(mee)
+        #mee_scores.append(mee)
         mae = np.mean(np.abs(y_val - y_pred), axis=0)
 
         if mee < mee_best:
