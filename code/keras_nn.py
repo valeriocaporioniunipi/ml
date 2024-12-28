@@ -8,6 +8,7 @@ from keras import Sequential
 from keras import layers
 from keras import regularizers
 from keras import optimizers
+from keras import models
 from sklearn.model_selection import KFold, GridSearchCV
 from sklearn.preprocessing import StandardScaler
 from scikeras.wrappers import KerasRegressor
@@ -183,6 +184,8 @@ def keras_network(ms = False, n_splits=5, epochs = 400):
         lmb = params["model__lmb"],
         summary = True)
 
+    prediction_model = models.clone_model(model)
+
     # initial weights are stored in order to allow future refresh
     initial_weights = model.get_weights()
     # initialization of best model: the one with best score is taken
@@ -243,12 +246,15 @@ def keras_network(ms = False, n_splits=5, epochs = 400):
     tr_losses = history.history['loss']
     val_losses = history.history['val_loss']
 
-    y_pred_outer, internal_losses = predict(model=model, x_test= features_test,
+    prediction_model.set_weights(initial_weights)
+    fit = prediction_model.fit(features, targets, epochs = epochs, verbose=0)
+
+    y_pred_outer, internal_losses = predict(model=prediction_model, x_test= features_test,
                                 y_test= targets_test, x_outer=get_outer(abs_path("ML-CUP24-TS.csv", "data")))
 
-    print("TR Loss: ", tr_losses[-1])
-    print("VL Loss: ", val_losses[-1])
-    print("TS Loss: ", tf.reduce_mean(internal_losses))
+    print("TR loss (best-performing fold): ", tr_losses[-1])
+    print("VL loss (best-performing fold): ", val_losses[-1])
+    print("TS loss (training on both TR and VL): ", tf.reduce_mean(internal_losses))
 
     logger.info("Computation with Keras successfully ended!")
 
