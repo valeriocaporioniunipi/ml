@@ -61,7 +61,7 @@ def plot_learning_curve(losses, val_losses, epochs, start_epoch=1, savefig=False
     plt.title(f'PyTorch learning curve')
 
     if savefig:
-        plt.savefig("NN_Torch.pdf")
+        plt.savefig("plot/NN_Torch.pdf")
 
     plt.show()
 
