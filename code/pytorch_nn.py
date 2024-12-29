@@ -25,23 +25,23 @@ class NeuralNetwork(nn.Module):
         self.flatten = nn.Flatten()
 
         # Input layer
-        layers = [nn.Linear(input, units), nn.ReLU()]
+        layers = [nn.Linear(input, units), nn.Tanh()]
 
         # Hidden layers
         for _ in range(hidden_layers):
             layers.append(nn.Linear(units, units))
-            layers.append(nn.ReLU())
+            layers.append(nn.Tanh())
 
         # Output layer
         layers.append(nn.Linear(units, output))
 
-        self.linear_relu_stack = nn.Sequential(*layers)
+        self.linear_tanh_stack = nn.Sequential(*layers)
 
         logger.info(f"Model architecture: {self}")
 
     def forward(self, features):
         features = self.flatten(features)
-        logits = self.linear_relu_stack(features)
+        logits = self.linear_tanh_stack(features)
         return logits
 
 def init_weights(m):
@@ -212,17 +212,19 @@ def model_selection(features, targets, n_splits, epochs):
 
     for params in param_combinations:
         # performing cross validation via multiprocessing
-        pool.apply_async(cross_validation, args = (features, targets, n_splits, epochs, *params),
+        pool.apply_async(cross_validation, args = (features, targets, n_splits, epochs,
+                                                 params[0], params[1], params[2], params[3]),
                           callback= log_ms_result)
-        
-    pool.close()
+        # ms_result is the callback of the pool.apply_async: it will return a ms_result
+    pool.close() # closing the pool
     pool.join()
 
-    ms_elapsed_time = time.time()-ms__initial_time
+    ms_elapsed_time = time.time() - ms__initial_time
     logger.info(f"Grid search successfully performed in {ms_elapsed_time} seconds")
 
 
     # print model selection results
+
     sorted_res = sorted(ms_result, key=lambda tup: (np.mean(tup[1], axis=0))[1])
     for (p, l, t) in sorted_res:
         scores = np.mean(l, axis=0)
@@ -252,7 +254,7 @@ def predict(model, x_test, y_test, x_outer):
     return y_outer_pred.detach().numpy(), iloss.item()
 
 
-def pytorch_nn(ms=False, n_splits=10 , epochs =200):
+def pytorch_nn(ms=True, n_splits=10 , epochs =3):
     logger.info("Initializing PyTorch...")
 
     filepath = abs_path("ML-CUP24-TR.csv", "data")
@@ -264,7 +266,7 @@ def pytorch_nn(ms=False, n_splits=10 , epochs =200):
         logger.info("Choosing hyperparameters with a GridSearch")
         params = model_selection(features, targets, n_splits = n_splits, epochs = epochs)
     else:
-        params = dict(eta=0.003, alpha=0.85, lmb=0.0002, epochs=epochs, batch_size=64)
+        params = dict(eta=0.002, alpha=0.7, lmb=0.0001, epochs=epochs, batch_size=64)
         logger.info(f"Parameters have been chosen manually: {params}")
 
     # create and fit the model
@@ -301,7 +303,7 @@ def pytorch_nn(ms=False, n_splits=10 , epochs =200):
                  batch_size=params['batch_size'], epochs=params['epochs'])
 
     y_pred_outer, internal_losses = predict(model=prediction_model,
-                                x_outer = get_outer(abs_path("ML-CUP24-TS.csv", "data")),
+                                x_outer = get_outer(abs_path("Torch_ML-CUP24-TS.csv", "data")),
                                 x_test= features_test,
                                 y_test = targets_test)
 

@@ -158,7 +158,7 @@ def plot_learning_curve(history_dic, start_epoch=1, end_epoch=400, savefig=False
     plt.show()
 
 
-def keras_network(ms = False, n_splits=5, epochs = 400):
+def keras_network(ms = True, n_splits=5, epochs = 400):
     logger.info("Initializing Keras...")
     # getting the absolute path to te file through utils function abs_path 
     filepath = abs_path("ML-CUP24-TR.csv", "data")
@@ -250,7 +250,7 @@ def keras_network(ms = False, n_splits=5, epochs = 400):
     fit = prediction_model.fit(features, targets, epochs = epochs, verbose=0)
 
     y_pred_outer, internal_losses = predict(model=prediction_model, x_test= features_test,
-                                y_test= targets_test, x_outer=get_outer(abs_path("ML-CUP24-TS.csv", "data")))
+                                y_test= targets_test, x_outer=get_outer(abs_path("Keras_ML-CUP24-TS.csv", "data")))
 
     print("TR loss (best-performing fold): ", tr_losses[-1])
     print("VL loss (best-performing fold): ", val_losses[-1])
