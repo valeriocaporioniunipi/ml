@@ -160,15 +160,17 @@ def target_distribution(target, multitarget = False, show = False):
 # loss function for Keras and SVM models
 def euclidean_error(y_true, y_pred):
     return tf.sqrt(tf.reduce_sum(tf.square(y_pred - y_true), axis=-1))
-    #return np.sqrt(np.sum(np.square(y_pred - y_true), axis=1))
-    #return np.sqrt(np.sum(np.square(K.eval(y_pred) - K.eval(y_true)), axis=1))
 
 
 # it retrieves the mean value of all the passed losses
 def mean_euclidean_error(y_true, y_pred):
     return tf.reduce_mean(euclidean_error(y_true, y_pred))
 
-scorer = make_scorer(mean_euclidean_error, greater_is_better=False)
+def mean_euclidean_error_scorer(y_true, y_pred):
+    mee = mean_euclidean_error(y_true=y_true, y_pred=y_pred)
+    return mee.numpy()
+
+scorer = make_scorer(mean_euclidean_error_scorer, greater_is_better=False)
 
 def w_csv(data):
     teamname = "DUNEDAIN"

@@ -129,15 +129,14 @@ def model_selection(features, targets, n_splits, epochs):
     logger.info(f"Best: {grid_result.best_score_} using {best_params}")
     return best_params
 
-def predict(model, x_test, y_test, x_outer):
+def predict(model, features_test, targets_test, features_outer):
     # predict on internal test set of data
-    y_pred = model.predict(x_test)
-    loss = euclidean_error(y_test, y_pred)
+    internal_test_loss = euclidean_error(targets_test, model.predict(features_test))
     # predict on an outer test set
-    y_outer_pred = model.predict(x_outer)
-
+    targets_outer_pred = model.predict(features_outer)
     # return prediction on outer test set and loss on internal test set
-    return y_outer_pred, loss
+    return targets_outer_pred, internal_test_loss
+
 
 def plot_learning_curve(history_dic, start_epoch=1, end_epoch=400, savefig=False):
 
@@ -158,7 +157,7 @@ def plot_learning_curve(history_dic, start_epoch=1, end_epoch=400, savefig=False
     plt.show()
 
 
-def keras_network(ms = True, n_splits=5, epochs = 400):
+def keras_network(ms = False, n_splits=5, epochs = 400):
     logger.info("Initializing Keras...")
     # getting the absolute path to te file through utils function abs_path 
     filepath = abs_path("ML-CUP24-TR.csv", "data")
@@ -184,7 +183,11 @@ def keras_network(ms = True, n_splits=5, epochs = 400):
         lmb = params["model__lmb"],
         summary = True)
 
-    prediction_model = models.clone_model(model)
+    prediction_model = create_nn(input_shape = np.shape(features[0]),
+        eta = params["model__eta"],
+        alpha = params["model__alpha"],
+        lmb = params["model__lmb"],
+        summary = True)
 
     # initial weights are stored in order to allow future refresh
     initial_weights = model.get_weights()
@@ -249,12 +252,12 @@ def keras_network(ms = True, n_splits=5, epochs = 400):
     prediction_model.set_weights(initial_weights)
     fit = prediction_model.fit(features, targets, epochs = epochs, verbose=0)
 
-    y_pred_outer, internal_losses = predict(model=prediction_model, x_test= features_test,
-                                y_test= targets_test, x_outer=get_outer(abs_path("Keras_ML-CUP24-TS.csv", "data")))
+    y_pred_outer, internal_losses = predict(model=prediction_model, features_test= features_test,
+                                targets_test= targets_test, features_outer=get_outer(abs_path("ML-CUP24-TS.csv", "data")))
 
     print("TR loss (best-performing fold): ", tr_losses[-1])
     print("VL loss (best-performing fold): ", val_losses[-1])
-    print("TS loss (training on both TR and VL): ", tf.reduce_mean(internal_losses))
+    print("TS loss (training on both TR and VL): ", tf.reduce_mean(internal_losses).numpy())
 
     logger.info("Computation with Keras successfully ended!")
 

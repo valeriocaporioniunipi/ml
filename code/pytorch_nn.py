@@ -303,7 +303,7 @@ def pytorch_nn(ms=True, n_splits=10 , epochs =3):
                  batch_size=params['batch_size'], epochs=params['epochs'])
 
     y_pred_outer, internal_losses = predict(model=prediction_model,
-                                x_outer = get_outer(abs_path("Torch_ML-CUP24-TS.csv", "data")),
+                                x_outer = get_outer(abs_path("ML-CUP24-TS.csv", "data")),
                                 x_test= features_test,
                                 y_test = targets_test)
 
