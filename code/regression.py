@@ -16,7 +16,7 @@ from matplotlib import pyplot as plt
 
 
 #@ignore_warnings(category=ConvergenceWarning)
-def regression(features, targets, n_splits, model):
+def regression(features, targets, n_splits, reg_type):
 
     """
     Performs linear regression (using sklearn) with k-fold cross-validation with a
@@ -58,6 +58,7 @@ def regression(features, targets, n_splits, model):
     #Figure initialization:
     _, axes = plt.subplots(3, 3, figsize=(10, 10))
 
+    logger.info(f"Performing a {reg_type} regression ")
     # Perform k-fold cross-validation
     for _, (train_index, test_index) in enumerate(kf.split(features), 1):
         # Split data into training and testing sets
@@ -68,16 +69,15 @@ def regression(features, targets, n_splits, model):
         x_test = scaler.transform(x_test)
 
         # Initialize and fit linear regression model
-        if model == "l":
-            logger.info("Selecting linear regression...")
+        if reg_type == "linear":
             model = LinearRegression()
-        if model == "g":
-            logger.info("Selecting gaussian regression...")
+        elif reg_type == "gaussian":
             kernel = C(1.0, (1, 1e2)) * Matern(length_scale=1.0, length_scale_bounds=(1, 1e2))
             model = GaussianProcessRegressor(kernel = kernel, n_restarts_optimizer = 5)
-        if model == "k":
-            logger.info("Selecting k-nn regression...")
+        elif reg_type == "knn":
             model = KNeighborsRegressor()
+        else:
+            logger.error("Unvalid type of regression has been selected! Only 'linear', 'gaussian' and 'knn' are allowed") 
         model.fit(x_train, y_train)
         # Predict on the test set
         y_pred = model.predict(x_test)
@@ -99,7 +99,6 @@ def regression(features, targets, n_splits, model):
             for j in range(3): 
                 axes[i, j].plot(y_test[:,j] - y_pred[:,j], y_test[:,i] - y_pred[:,i], marker='o', markersize=2, linestyle='')
                 axes[i, j].grid(True)
-
     # Print average evaluation metrics over all folds
     mee, mee_mean = mee_scores.mean(0), mee_scores_mean.mean(0)
 
@@ -120,7 +119,7 @@ features, targets = get_data(filepath)
 target_distribution(targets, show = False)
 
 #Performing linear regression:
-regression(features, targets, 5, "k")
+regression(features, targets, 5, "lfdsf")
 
 plt.tight_layout()
 plt.show()
