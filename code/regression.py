@@ -1,20 +1,20 @@
 '''
 Regression
 '''
-
+import os
 import numpy as np
 from loguru import logger
 from sklearn.model_selection import KFold
 from sklearn.linear_model import LinearRegression
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.neighbors import KNeighborsRegressor
-from sklearn.gaussian_process.kernels import ConstantKernel as C, Matern
+from sklearn.gaussian_process.kernels import ConstantKernel as C, Matern, RBF
 from sklearn.preprocessing import StandardScaler
-from utils import get_data, abs_path, target_distribution, mean_euclidean_error_scorer, euclidean_error_scorer
+from utils import get_data, abs_path, target_distribution, mean_euclidean_error_scorer, euclidean_error_scorer, get_outer, w_csv
 from matplotlib import pyplot as plt
 
 
-
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 #@ignore_warnings(category=ConvergenceWarning)
 def regression(features, targets, n_splits, reg_type):
 
@@ -72,8 +72,10 @@ def regression(features, targets, n_splits, reg_type):
         if reg_type == "linear":
             model = LinearRegression()
         elif reg_type == "gaussian":
-            kernel = C(1.0, (1, 1e2)) * Matern(length_scale=1.0, length_scale_bounds=(1, 1e2))
-            model = GaussianProcessRegressor(kernel = kernel, n_restarts_optimizer = 5)
+            #kernel = C(1.0, (1, 1e2)) * Matern(length_scale=1.0, length_scale_bounds=(1, 1e2))
+            #kernel = Matern(length_scale=1, length_scale_bounds=(1e-3, 1e2))
+            kernel = RBF(length_scale=1.0, length_scale_bounds=(1e-4, 1e2))
+            model = GaussianProcessRegressor(kernel = kernel, n_restarts_optimizer = 15)
         elif reg_type == "knn":
             model = KNeighborsRegressor()
         else:
@@ -106,20 +108,25 @@ def regression(features, targets, n_splits, reg_type):
     #print("Mean Squared Error:", mee_mean) come fa ad essere diverso?
 
     logger.info("Regression correctly terminated")
+
+    plt.tight_layout()
+    plt.savefig(f"plot/{reg_type}_regression.pdf", transparent = True)
+
     return best_model
 
 
-#Getting the absolute path to te file through utils function abs_path 
-filepath = abs_path("ML-CUP24-TR.csv", "data")
+features, targets = get_data(abs_path("ML-CUP24-TR.csv", "data"))
 
-#Extracting features and targets from csv
-features, targets = get_data(filepath)
+outer_features = get_outer(abs_path("ML-CUP24-TS.csv", "data"))
 
 #Getting some targets informations
 target_distribution(targets, show = False)
 
-#Performing linear regression:
-regression(features, targets, 5, "lfdsf")
+#Performing regression:
+best_model = regression(features, targets, 5, "gaussian")
 
-plt.tight_layout()
+targets_pred_outer = best_model.predict(outer_features)
+
+#w_csv(targets_pred_outer)
+
 plt.show()
