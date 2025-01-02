@@ -161,6 +161,9 @@ def target_distribution(target, multitarget = False, show = False):
 def euclidean_error(y_true, y_pred):
     return tf.sqrt(tf.reduce_sum(tf.square(y_pred - y_true), axis=-1))
 
+def euclidean_error_scorer(y_true, y_pred):
+    mee = euclidean_error(y_true=y_true, y_pred=y_pred)
+    return mee.numpy()
 
 # it retrieves the mean value of all the passed losses
 def mean_euclidean_error(y_true, y_pred):
