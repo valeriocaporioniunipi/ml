@@ -24,9 +24,9 @@ def model_selection(features, targets):
     epsilon = np.arange(start=0.1, stop=0.9, step=0.1)
     epsilon = [float(round(i, 4)) for i in list(epsilon)]
 
-    param_grid = [{'estimator__kernel': ['rbf'],
+    param_grid = [{'estimator__kernel': ['rbf', 'linear', 'poly', 'sigmoid'],
                    'estimator__gamma': [1e-1, 1e-2, 1e-3, 1e-4, 'auto', 'scale'],
-                   'estimator__C': [5, 10, 15, 25],
+                   'estimator__C': [1e-3, 1e-2, 1e-1, 1, 10, 100],
                    'estimator__epsilon': epsilon}]
 
     start_time = time.time()
@@ -55,8 +55,17 @@ def model_selection(features, targets):
     return grid.best_params_
 
 def predict(model, features_test, targets_test, features_outer):
+
+    targets_pred = model.predict(features_test)
+
+    fig1, ax1 = plt.subplots(1, 3)
+    for i in range(3):
+        ax1[i].scatter(targets_test[:, i], targets_pred[:, i], marker = 'o')
+        ax1[i].set(xlabel="targets test", ylabel="targets predict")
+        ax1[i].set_title(f"Variable number {i}")
+
     # predict on internal test set of data
-    internal_test_loss = euclidean_error(targets_test, model.predict(features_test))
+    internal_test_loss = euclidean_error(targets_test, targets_pred)
     # predict on an outer test set
     targets_outer_pred = model.predict(features_outer)
     # return prediction on outer test set and loss on internal test set
@@ -76,6 +85,7 @@ def plot_learning_curve(model, features, targets, savefig=False):
         learning_curve(model, features, targets, train_sizes=np.linspace(0.1, 1, 60),
                        n_jobs=2, scoring=scorer, cv=10, verbose=1)
 
+    fig2 = plt.figure()
     plt.plot(train_sizes, np.mean(np.abs(train_scores_svr), axis=1))
     plt.plot(train_sizes, np.mean(np.abs(test_scores_svr), axis=1))
     plt.xlabel("train size")
@@ -102,7 +112,7 @@ def sklearn_svm(ms=True):
         logger.info("Choosing hyperparameters with a GridSearch")
         params = model_selection(features, targets)
     else:
-        params = dict(estimator__kernel='rbf', estimator__C=8, estimator__epsilon=0.6, estimator__gamma='scale')
+        params = dict(estimator__kernel='rbf', estimator__C=10, estimator__epsilon=0.1, estimator__gamma=0.01)
         logger.info(f"Parameters have been chosen manually: {params}")
 
     # create model and fit the model
@@ -112,16 +122,17 @@ def sklearn_svm(ms=True):
     # we use MOR to perform the multi-output regression task
     model = MultiOutputRegressor(svr)
 
-    # split development set into train and test set
+    # simulating losses on a training and validation set
     features_train, features_val, targets_train, targets_val = train_test_split(features, targets, test_size=0.1)
     model.fit(features_train, targets_train)
-
     train_losses = mean_euclidean_error(targets_train, model.predict(features_train))
     val_losses = mean_euclidean_error(targets_val, model.predict(features_val))
 
+    # fitting on the entire development set
     model.fit(features, targets)
 
-    targets_pred, internal_test_losses = predict(model=model,
+    # predictions on external test and model assessment
+    targets_outer_pred, internal_test_losses = predict(model=model,
                      features_outer=get_outer(abs_path("ML-CUP24-TS.csv", "data")),
                      features_test=features_test, targets_test=targets_test)
 
@@ -132,8 +143,8 @@ def sklearn_svm(ms=True):
     logger.info("Sklearn end.")
 
     plot_learning_curve(model, features, targets, savefig=True)
-    w_csv(targets_pred)
+    w_csv(targets_outer_pred)
 
 
 if __name__ == '__main__':
-    sklearn_svm()
+    sklearn_svm(ms = True)
