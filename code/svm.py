@@ -113,11 +113,13 @@ def sklearn_svm(ms=True):
     model = MultiOutputRegressor(svr)
 
     # split development set into train and test set
-    features_train, features_val, targets_train, targets_val = train_test_split(features, targets, test_size=0.3)
+    features_train, features_val, targets_train, targets_val = train_test_split(features, targets, test_size=0.1)
     model.fit(features_train, targets_train)
 
     train_losses = mean_euclidean_error(targets_train, model.predict(features_train))
     val_losses = mean_euclidean_error(targets_val, model.predict(features_val))
+
+    model.fit(features, targets)
 
     targets_pred, internal_test_losses = predict(model=model,
                      features_outer=get_outer(abs_path("ML-CUP24-TS.csv", "data")),

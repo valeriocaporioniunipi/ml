@@ -254,7 +254,7 @@ def predict(model, x_test, y_test, x_outer):
     return y_outer_pred.detach().numpy(), iloss.item()
 
 
-def pytorch_nn(ms=True, n_splits=10 , epochs =3):
+def pytorch_nn(ms=True, n_splits=10 , epochs =800):
     logger.info("Initializing PyTorch...")
 
     filepath = abs_path("ML-CUP24-TR.csv", "data")

@@ -157,7 +157,7 @@ def plot_learning_curve(history_dic, start_epoch=1, end_epoch=400, savefig=False
     plt.show()
 
 
-def keras_network(ms = False, n_splits=5, epochs = 400):
+def keras_network(ms = False, n_splits=5, epochs = 1000):
     logger.info("Initializing Keras...")
     # getting the absolute path to te file through utils function abs_path 
     filepath = abs_path("ML-CUP24-TR.csv", "data")
