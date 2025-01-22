@@ -173,17 +173,11 @@ def keras_network(ms = False, n_splits=5, epochs = 1000):
         logger.info("Choosing hyperparameters with a GridSearch")
         params = model_selection(features, targets, n_splits=n_splits, epochs=epochs)
     else:
-        params = dict(model__eta=0.002, model__lmb=0.007, model__alpha=0.4, model__epochs=200, model__batch_size=3)
+        params = dict(model__eta=0.002, model__lmb=0.007, model__alpha=0.4, model__batch_size=3)
         logger.info(f"Parameters have been chosen manually: {params}")
     
     # the model is now created
     model = create_nn(input_shape = np.shape(features[0]),
-        eta = params["model__eta"],
-        alpha = params["model__alpha"],
-        lmb = params["model__lmb"],
-        summary = True)
-
-    prediction_model = create_nn(input_shape = np.shape(features[0]),
         eta = params["model__eta"],
         alpha = params["model__alpha"],
         lmb = params["model__lmb"],
@@ -234,11 +228,10 @@ def keras_network(ms = False, n_splits=5, epochs = 1000):
         mae = np.mean(np.abs(y_val - y_pred), axis=0)
 
         if mee < mee_best:
-            mee_best = mee
-            best_model = model
+            # only the best history will be shown in the plot
             history = fit
 
-        # plotting actual vs predicted target values
+        # plotting actual vs predicted target values for every fold
         for j in range(3):  # lopping over each target dimension
             ax[j].scatter(y_val[:, j], y_pred[:, j], alpha=0.5, color=colors[i],
                         label=f'Fold {i} - MAE = {np.round(mae[j], 2)}')
@@ -246,13 +239,15 @@ def keras_network(ms = False, n_splits=5, epochs = 1000):
                     [y_val[:, j].min(), y_val[:, j].max()], 'k--', lw=2)  # Ideal line y=x
             ax[j].legend()
         
+    # plotting the best history over the folds
     tr_losses = history.history['loss']
     val_losses = history.history['val_loss']
 
-    prediction_model.set_weights(initial_weights)
-    fit = prediction_model.fit(features, targets, epochs = epochs, verbose=0)
+    # re-fitting the model on the entire development set
+    model.set_weights(initial_weights)
+    fit = model.fit(features, targets, epochs = epochs, verbose=0)
 
-    y_pred_outer, internal_losses = predict(model=prediction_model, features_test= features_test,
+    y_pred_outer, internal_losses = predict(model=model, features_test= features_test,
                                 targets_test= targets_test, features_outer=get_outer(abs_path("ML-CUP24-TS.csv", "data")))
 
     print("TR loss (best-performing fold): ", tr_losses[-1])

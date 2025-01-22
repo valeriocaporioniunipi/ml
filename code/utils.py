@@ -199,5 +199,5 @@ def w_csv(data):
         logger.error(f"Error writing CSV file")
         raise Exception 
 
-def torch_mee(y_true, y_pred):
+def torch_mee(y_pred, y_true):
     return torch.mean(pairwise_distance(y_true, y_pred, p=2))

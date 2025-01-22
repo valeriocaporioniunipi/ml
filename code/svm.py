@@ -147,4 +147,4 @@ def sklearn_svm(ms=True):
 
 
 if __name__ == '__main__':
-    sklearn_svm(ms = True)
+    sklearn_svm(ms = False)

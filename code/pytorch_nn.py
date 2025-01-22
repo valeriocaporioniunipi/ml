@@ -11,13 +11,13 @@ from torch.nn.init import xavier_normal_
 from torch.nn import Linear
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.model_selection import KFold
-from torch import optim
 import matplotlib.pyplot as plt
 from torch.utils.data.dataset import random_split
-
+from torch import optim
 from utils import torch_mee, abs_path, get_data, get_outer, w_csv
 
 ms_result = []
+np.random.seed(42)
 
 class NeuralNetwork(nn.Module):
     def __init__(self, units=32, input=12, output=3, hidden_layers=3):
@@ -25,23 +25,23 @@ class NeuralNetwork(nn.Module):
         self.flatten = nn.Flatten()
 
         # Input layer
-        layers = [nn.Linear(input, units), nn.Tanh()]
+        layers = [nn.Linear(input, units), nn.ReLU()]
 
         # Hidden layers
         for _ in range(hidden_layers):
             layers.append(nn.Linear(units, units))
-            layers.append(nn.Tanh())
+            layers.append(nn.ReLU())
 
         # Output layer
         layers.append(nn.Linear(units, output))
 
-        self.linear_tanh_stack = nn.Sequential(*layers)
+        self.linear_relu_stack = nn.Sequential(*layers)
 
         logger.info(f"Model architecture: {self}")
 
     def forward(self, features):
         features = self.flatten(features)
-        logits = self.linear_tanh_stack(features)
+        logits = self.linear_relu_stack(features)
         return logits
 
 def init_weights(m):
@@ -59,6 +59,7 @@ def plot_learning_curve(losses, val_losses, epochs, start_epoch=1, savefig=False
     plt.ylabel("loss")
     plt.legend(['loss TR', 'loss VL'])
     plt.title(f'PyTorch learning curve')
+    plt.yscale('log')
 
     if savefig:
         plt.savefig("plot/NN_Torch.pdf")
@@ -75,7 +76,7 @@ def make_train_step(model, loss_fn, optimizer):
         # making predictions
         y_hat = model(features)
         # computing the loss
-        loss = loss_fn(targets, y_hat)
+        loss = loss_fn(y_hat, targets)
         # computing gradients
         loss.backward()
         # updating parameter and zero gradients
@@ -90,6 +91,8 @@ def make_train_step(model, loss_fn, optimizer):
 
 def fit(x_train, y_train, model, optimizer, validation_data = None, loss_fn=torch_mee, epochs=200, batch_size=64):
 
+    # define a scheduler for variable eta (decaying learning rate)
+    scheduler = optim.lr_scheduler.LinearLR(optimizer, start_factor = 1, end_factor = 0.01, total_iters=epochs)
     # create the train_step function for our model, loss function and optimizer
     train_step = make_train_step(model, loss_fn, optimizer)
     losses = []
@@ -113,6 +116,7 @@ def fit(x_train, y_train, model, optimizer, validation_data = None, loss_fn=torc
         # divide the dataset in batches
         val_loader = DataLoader(dataset=validation_data, batch_size=batch_size, shuffle=False)
 
+    
     for _ in range(epochs):
         epoch_losses = []
         #updating weights batch by batch
@@ -120,6 +124,7 @@ def fit(x_train, y_train, model, optimizer, validation_data = None, loss_fn=torc
             # performing one train step and returning the loss for each epoch
             loss = train_step(x_batch, y_batch)
             epoch_losses.append(loss)
+        scheduler.step()
         losses.append(np.mean(epoch_losses))
 
         epoch_val_losses = []
@@ -149,7 +154,7 @@ def cross_validation(features, targets,
                     n_splits, epochs,
                     eta=0.003, alpha=0.85, lmb=0.0002, batch_size=64):
     
-    kf = KFold(n_splits=n_splits, random_state=42, shuffle=False)
+    kf = KFold(n_splits=n_splits, random_state=42, shuffle=True)
     cv_loss = []
     fit_times = []
 
@@ -254,7 +259,7 @@ def predict(model, x_test, y_test, x_outer):
     return y_outer_pred.detach().numpy(), iloss.item()
 
 
-def pytorch_nn(ms=True, n_splits=10 , epochs =800):
+def pytorch_nn(ms=True, n_splits=10 , epochs =1000):
     logger.info("Initializing PyTorch...")
 
     filepath = abs_path("ML-CUP24-TR.csv", "data")
@@ -266,7 +271,7 @@ def pytorch_nn(ms=True, n_splits=10 , epochs =800):
         logger.info("Choosing hyperparameters with a GridSearch")
         params = model_selection(features, targets, n_splits = n_splits, epochs = epochs)
     else:
-        params = dict(eta=0.002, alpha=0.7, lmb=0.0001, epochs=epochs, batch_size=64)
+        params = dict(eta=0.001, alpha=0.7, lmb=0.0001, epochs=epochs, batch_size=64)
         logger.info(f"Parameters have been chosen manually: {params}")
 
     # create and fit the model
@@ -281,8 +286,8 @@ def pytorch_nn(ms=True, n_splits=10 , epochs =800):
     indices = np.random.permutation(len(features))
 
     # divide the indices into two groups
-    indices_val = indices[:val_size]  # first part
-    indices_train = indices[val_size:]  # second part
+    indices_train = indices[val_size:]  
+    indices_val = indices[:val_size]
 
     # divide data based on indices
     features_val = features[indices_val]
@@ -294,15 +299,12 @@ def pytorch_nn(ms=True, n_splits=10 , epochs =800):
     tr_losses, val_losses = fit(features_train, targets_train, model=model, optimizer=optimizer, validation_data = (features_val, targets_val),
                                 batch_size=params['batch_size'], epochs=params['epochs'])
     
-    print(len(tr_losses))
-    print(len(val_losses))
-    # create and fit the second model (fitting on both TR and VL)
-    prediction_model = NeuralNetwork()
-    prediction_model.apply(init_weights)
-    _ = fit(features, targets, model=prediction_model, optimizer=optimizer,
+    # initialize and fit the model on both TR and VL
+    model.apply(init_weights)
+    _ = fit(features, targets, model=model, optimizer=optimizer,
                  batch_size=params['batch_size'], epochs=params['epochs'])
 
-    y_pred_outer, internal_losses = predict(model=prediction_model,
+    y_pred_outer, internal_losses = predict(model=model,
                                 x_outer = get_outer(abs_path("ML-CUP24-TS.csv", "data")),
                                 x_test= features_test,
                                 y_test = targets_test)
@@ -319,4 +321,4 @@ def pytorch_nn(ms=True, n_splits=10 , epochs =800):
     w_csv(y_pred_outer)
 
 if __name__ == '__main__':
-    pytorch_nn()
+    pytorch_nn(ms= False)
