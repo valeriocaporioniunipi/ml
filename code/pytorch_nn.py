@@ -92,7 +92,7 @@ def make_train_step(model, loss_fn, optimizer):
 def fit(x_train, y_train, model, optimizer, validation_data = None, loss_fn=torch_mee, epochs=200, batch_size=64):
 
     # define a scheduler for variable eta (decaying learning rate)
-    scheduler = optim.lr_scheduler.LinearLR(optimizer, start_factor = 1, end_factor = 0.01, total_iters=epochs)
+    scheduler = optim.lr_scheduler.LinearLR(optimizer, start_factor = 1, end_factor = 0.01, total_iters=400)
     # create the train_step function for our model, loss function and optimizer
     train_step = make_train_step(model, loss_fn, optimizer)
     losses = []
@@ -152,7 +152,7 @@ def fit(x_train, y_train, model, optimizer, validation_data = None, loss_fn=torc
 
 def cross_validation(features, targets,
                     n_splits, epochs,
-                    eta=0.003, alpha=0.85, lmb=0.0002, batch_size=64):
+                    eta, alpha, lmb, batch_size):
     
     kf = KFold(n_splits=n_splits, random_state=42, shuffle=True)
     cv_loss = []
@@ -259,7 +259,7 @@ def predict(model, x_test, y_test, x_outer):
     return y_outer_pred.detach().numpy(), iloss.item()
 
 
-def pytorch_nn(ms=True, n_splits=10 , epochs =1000):
+def pytorch_nn(ms=True, n_splits=10 , epochs =2000):
     logger.info("Initializing PyTorch...")
 
     filepath = abs_path("ML-CUP24-TR.csv", "data")
@@ -271,7 +271,7 @@ def pytorch_nn(ms=True, n_splits=10 , epochs =1000):
         logger.info("Choosing hyperparameters with a GridSearch")
         params = model_selection(features, targets, n_splits = n_splits, epochs = epochs)
     else:
-        params = dict(eta=0.002, alpha=0.5, lmb=0.001, epochs=epochs, batch_size=64)
+        params = dict(eta=0.002, alpha=0.5, lmb=0.005, epochs=epochs, batch_size=64)
         logger.info(f"Parameters have been chosen manually: {params}")
 
     # create and fit the model
