@@ -59,7 +59,7 @@ def plot_learning_curve(losses, val_losses, epochs, start_epoch=1, savefig=False
     plt.ylabel("loss")
     plt.legend(['loss TR', 'loss VL'])
     plt.title(f'PyTorch learning curve')
-    plt.yscale('log')
+    #plt.yscale('log')
 
     if savefig:
         plt.savefig("plot/NN_Torch.pdf")
@@ -271,12 +271,16 @@ def pytorch_nn(ms=True, n_splits=10 , epochs =1000):
         logger.info("Choosing hyperparameters with a GridSearch")
         params = model_selection(features, targets, n_splits = n_splits, epochs = epochs)
     else:
-        params = dict(eta=0.001, alpha=0.7, lmb=0.0001, epochs=epochs, batch_size=64)
+        params = dict(eta=0.002, alpha=0.5, lmb=0.001, epochs=epochs, batch_size=64)
         logger.info(f"Parameters have been chosen manually: {params}")
 
     # create and fit the model
     model = NeuralNetwork()
+    pred_model = NeuralNetwork()
     model.apply(init_weights)
+    pred_model.apply(init_weights)
+    optimizer_pecora = optim.SGD(pred_model.parameters(), lr=params['eta'],
+                    momentum=params['alpha'], weight_decay=params['lmb'])
     optimizer = optim.SGD(model.parameters(), lr=params['eta'],
                     momentum=params['alpha'], weight_decay=params['lmb'])
 
@@ -300,19 +304,19 @@ def pytorch_nn(ms=True, n_splits=10 , epochs =1000):
                                 batch_size=params['batch_size'], epochs=params['epochs'])
     
     # initialize and fit the model on both TR and VL
-    model.apply(init_weights)
-    _ = fit(features, targets, model=model, optimizer=optimizer,
+    tr_pred_losses = fit(features, targets, model=pred_model, optimizer=optimizer_pecora,
                  batch_size=params['batch_size'], epochs=params['epochs'])
 
-    y_pred_outer, internal_losses = predict(model=model,
+    y_pred_outer, internal_losses = predict(model=pred_model,
                                 x_outer = get_outer(abs_path("ML-CUP24-TS.csv", "data")),
                                 x_test= features_test,
                                 y_test = targets_test)
 
     print("TR loss (best-performing fold): ", tr_losses[-1])
     print("VL loss (best-performing fold): ", val_losses[-1])
-    print("TS loss (training on both TR and VL): ", np.mean(internal_losses))
-
+    print("DV loss: ", tr_pred_losses[-1])
+    print("TS loss (training on both TR and VL): ", internal_losses)
+   
     logger.info("Computation with PyTorch successfully ended!")
 
     plot_learning_curve(tr_losses, val_losses, epochs=epochs, savefig=True)

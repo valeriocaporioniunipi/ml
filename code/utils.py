@@ -77,7 +77,7 @@ def get_data(filepath, target_col=3, ex_cols=1, split = False):
         test_size = 0.1 # Percentage of test set 
 
         train_features, test_features, train_targets, test_targets = train_test_split(
-        features, targets, test_size=test_size, random_state=42)
+        features, targets, test_size=test_size, random_state=40)
 
         logger.info(f"Training feature dataset with {train_features.shape} dimensions")
         logger.info(f"Training target dataset with {train_targets.shape} dimensions")
