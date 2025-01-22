@@ -70,7 +70,20 @@ def create_nn(input_shape,
 
     model.add(layers.Dense(3, activation='linear'))  # Output layer of a regression problem
 
-    # Adding optimizer for the model:
+    #     # Learning rate decay parameters
+    # starter_learning_rate = eta  # Learning rate iniziale
+    # end_learning_rate = eta*0.3     # Learning rate finale
+    # decay_steps = 300          # Numero di passi prima di raggiungere il learning rate finale
+
+    # # Definizione del learning rate decay polinomiale
+    # learning_rate_fn = optimizers.schedules.PolynomialDecay(
+    #     starter_learning_rate,
+    #     decay_steps,
+    #     end_learning_rate,
+    #     power=1.0  # Setted as one for linear decay
+# )
+
+    # Adding optimizer for the model: # TODO change to learning_rate_fn for linear decay
     optimizer = optimizers.SGD(learning_rate=eta, momentum=alpha)
 
     # Compiling the model
@@ -173,7 +186,7 @@ def keras_network(ms = False, n_splits=5, epochs = 1000):
         logger.info("Choosing hyperparameters with a GridSearch")
         params = model_selection(features, targets, n_splits=n_splits, epochs=epochs)
     else:
-        params = dict(model__eta=0.002, model__lmb=0.007, model__alpha=0.4, model__batch_size=3)
+        params = dict(model__eta=0.002, model__lmb=0.007, model__alpha=0.4, model__batch_size=32)
         logger.info(f"Parameters have been chosen manually: {params}")
     
     # the model is now created
