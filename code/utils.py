@@ -112,6 +112,26 @@ def get_outer(filepath, ex_cols=1):
 
     return outer_data
 
+def monk_data(data_file_path):
+
+    '''
+    This function takes as input the path to the document and splits it into columns. 
+    Then it assigns the proper columns to the features and label variables X and y.
+
+    Args:
+        path: the path to the document
+    '''
+
+    data = pd.read_csv(data_file_path, header = None)
+    df = data[0].str.split(expand=True)
+    
+    df.columns = ["target", "col_1", "col_2", "col_3", "col_4", "col_5", "col_6", "id"]
+    
+    y = df["target"]
+    X = df.drop(columns=["target", "id"])
+
+    return X, y
+
 
 def target_distribution(target, multitarget = False, show = False):
     """
@@ -164,6 +184,10 @@ def euclidean_error(y_true, y_pred):
 def euclidean_error_scorer(y_true, y_pred):
     mee = euclidean_error(y_true=y_true, y_pred=y_pred)
     return mee.numpy()
+
+def euclidean_error_scorer2(y_true, y_pred):
+    mee = euclidean_error(y_true=y_true, y_pred=y_pred)
+    return mee.eval()
 
 # it retrieves the mean value of all the passed losses
 def mean_euclidean_error(y_true, y_pred):
