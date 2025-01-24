@@ -12,7 +12,8 @@ from keras import regularizers
 
 from sklearn.model_selection import KFold, GridSearchCV
 from sklearn.preprocessing import OneHotEncoder
-from sklearn.metrics import mean_squared_error, classification_report
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_squared_error, classification_report, accuracy_score
 from scikeras.wrappers import KerasClassifier
 
 from utils import monk_data, abs_path
@@ -143,34 +144,26 @@ def predict(model, features_test, targets_test):
 
 def plot_learning_curve(history_dic, dataset, start_epoch=1, end_epoch=400, savefig=False):
 
-    lgd = ['loss TR']
     plt.plot(range(start_epoch, end_epoch), history_dic['loss'][start_epoch:])
-    if "val_loss" in history_dic:
-        plt.plot(range(start_epoch, end_epoch), history_dic['val_loss'][start_epoch:])
-        lgd.append('loss VL')
-
+    plt.plot(range(start_epoch, end_epoch), history_dic['val_loss'][start_epoch:])
     plt.xlabel("epoch")
     plt.ylabel("loss")
     plt.yscale('log')
-    plt.title(f'Keras learning curve')
-    plt.legend(lgd)
-
+    plt.title(f'Keras learning curve on {dataset} Monk problem')
+    plt.legend(['loss TR','loss VL'])
     if savefig:
-        plt.savefig(f"plot\keras{dataset}_mse", transparent = True)
+        plt.savefig(f"plot\keras{dataset}_learning", transparent = True)
     plt.show()
 
-    lgd = ['accuracy TR']
-    plt.plot(range(start_epoch, end_epoch), history_dic['accuracy'][start_epoch:])
-    if "val_accuracy" in history_dic:
-        plt.plot(range(start_epoch, end_epoch), history_dic['val_accuracy'][start_epoch:])
-        lgd.append('accuracy VL')
+def plot_acc_curve(history_dic, dataset, start_epoch=1, end_epoch=400, savefig=False):
 
+    plt.plot(range(start_epoch, end_epoch), history_dic['accuracy'][start_epoch:])
+    plt.plot(range(start_epoch, end_epoch), history_dic['val_accuracy'][start_epoch:])
     plt.xlabel("epoch")
     plt.ylabel("accuracy")
     plt.yscale('log')
-    plt.title(f'Keras learning curve')
-    plt.legend(lgd)
-
+    plt.title(f'Keras accuracy on {dataset} Monk problem')
+    plt.legend(['accuracy DV', 'accuracy TS'])
     if savefig:
         plt.savefig(f"plot\keras{dataset}_acc", transparent = True)
     plt.show()
@@ -179,6 +172,7 @@ def keras_network(ms = False, n_splits = 5, epochs = 140, dataset = 1):
     logger.info("Initializing Keras...")
 
     encoder = OneHotEncoder(sparse_output=False) 
+    scaler = StandardScaler()
 
     if dataset == 1 or dataset == 2 or dataset ==3:
         iterations = 1
@@ -239,6 +233,7 @@ def keras_network(ms = False, n_splits = 5, epochs = 140, dataset = 1):
 
         # Convert y_train to numpy array
         targets = np.array(targets, dtype=np.float32)
+        targets_test = np.array(targets_test, dtype=np.float32)
         print("SHAPES before split:", features.shape, targets.shape)
 
         for train_index, val_index in folds.split(features, targets):
@@ -264,10 +259,11 @@ def keras_network(ms = False, n_splits = 5, epochs = 140, dataset = 1):
         val_loss = history.history['val_loss']
 
         prediction_model.set_weights(initial_weights)
-        fit = prediction_model.fit(features, targets, epochs=epochs, verbose=0)
+        fit = prediction_model.fit(features, targets, epochs=epochs,
+                                   validation_data=(features_test, targets_test), verbose=0)
 
         dv_accuracy = fit.history['accuracy']
-        ts_accuracy = fit.history['accuracy']
+        ts_accuracy = fit.history['val_accuracy']
 
         # Predicting on test set
         targets_pred, test_loss = predict(model=prediction_model, 
@@ -286,10 +282,10 @@ def keras_network(ms = False, n_splits = 5, epochs = 140, dataset = 1):
         print("VL loss (best-performing fold): ", val_loss[-1])
 
         print("DV accuracy (training on both TR and VL): ", dv_accuracy[-1])
-        print("TS accuracy (training on both TR and VL): ", ts_accuracy[-1])
+        print("TS accuracy from history (training on both TR and VL): ", ts_accuracy[-1])
 
-        print("TS loss (training on both TR and VL): ", tf.reduce_mean(test_loss).numpy())
-        print("TS accuracy (training on both TR and VL): ", tf.reduce_mean(test_accuracy).numpy())
+        print("TS loss from prediction (training on both TR and VL): ", tf.reduce_mean(test_loss).numpy())
+        print("TS accuracy from prediction (training on both TR and VL): ", tf.reduce_mean(test_accuracy).numpy())
 
         # Classification report on test set
         print("\nDetailed Classification Report:")
@@ -297,7 +293,8 @@ def keras_network(ms = False, n_splits = 5, epochs = 140, dataset = 1):
 
         logger.info("Computation with Keras successfully ended!")
 
-        plot_learning_curve(history_dic=fit.history, dataset = dataset, end_epoch=epochs, savefig=False)
+        plot_learning_curve(history_dic=history.history, dataset = dataset, end_epoch=epochs, savefig=False)
+        plot_acc_curve(history_dic=fit.history, dataset = dataset, end_epoch=epochs, savefig=False)
 
 if __name__ == '__main__':
     keras_network()

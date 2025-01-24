@@ -10,38 +10,32 @@ from torch import nn
 from torch.nn.init import xavier_normal_
 from torch.nn import Linear
 from torch.utils.data import DataLoader, TensorDataset
-from sklearn.model_selection import KFold
 import matplotlib.pyplot as plt
 from torch.utils.data.dataset import random_split
 from torch import optim
-from utils import torch_mee, abs_path, get_data, get_outer, w_csv
+from sklearn.model_selection import KFold
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.metrics import accuracy_score, mean_squared_error
+
+from utils import torch_mee, abs_path, monk_data
 
 ms_result = []
 np.random.seed(42)
 
 class NeuralNetwork(nn.Module):
-    def __init__(self, units=32, input=12, output=3, hidden_layers=3):
-        super().__init__()
-        self.flatten = nn.Flatten()
-
-        # Input layer
-        layers = [nn.Linear(input, units), nn.ReLU()]
-
-        # Hidden layers
-        for _ in range(hidden_layers):
-            layers.append(nn.Linear(units, units))
-            layers.append(nn.ReLU())
-
-        # Output layer
-        layers.append(nn.Linear(units, output))
-
-        self.linear_relu_stack = nn.Sequential(*layers)
-
-        logger.info(f"Model architecture: {self}")
-
-    def forward(self, features):
-        features = self.flatten(features)
-        logits = self.linear_relu_stack(features)
+    def __init__(self):
+        super(NeuralNetwork, self).__init__()
+        self.linear_relu_stack = nn.Sequential(
+            nn.Linear(17, 16),  # Adjusted to accept 17 features
+            nn.ReLU(),
+            nn.Linear(16, 16),
+            nn.ReLU(),
+            nn.Linear(16, 1),
+            nn.Sigmoid()
+        )
+        
+    def forward(self, x):
+        logits = self.linear_relu_stack(x)
         return logits
 
 def init_weights(m):
@@ -49,9 +43,7 @@ def init_weights(m):
         xavier_normal_(m.weight)
 
 def plot_learning_curve(losses, val_losses, epochs, start_epoch=1, savefig=False):
-    """
-    function that shows the learning curve
-    """
+
     plt.plot(range(start_epoch, epochs), losses[start_epoch:])
     plt.plot(range(start_epoch, epochs), val_losses[start_epoch:])
 
@@ -62,8 +54,7 @@ def plot_learning_curve(losses, val_losses, epochs, start_epoch=1, savefig=False
     #plt.yscale('log')
 
     if savefig:
-        plt.savefig("plot/NN_Torch.pdf")
-
+        plt.savefig("plot/monk_pytorch_1.pdf")
     plt.show()
 
 def make_train_step(model, loss_fn, optimizer):
@@ -89,10 +80,12 @@ def make_train_step(model, loss_fn, optimizer):
     return train_step
 
 
-def fit(x_train, y_train, model, optimizer, validation_data = None, loss_fn=torch_mee, epochs=200, batch_size=64):
+def fit(x_train, y_train, model,
+        optimizer, validation_data = None, loss_fn=torch_mee, epochs=200, batch_size=64):
 
     # define a scheduler for variable eta (decaying learning rate)
-    scheduler = optim.lr_scheduler.LinearLR(optimizer, start_factor = 1, end_factor = 0.01, total_iters=400)
+    scheduler = optim.lr_scheduler.LinearLR(optimizer, start_factor = 1,
+                                            end_factor = 0.01, total_iters=400)
     # create the train_step function for our model, loss function and optimizer
     train_step = make_train_step(model, loss_fn, optimizer)
     losses = []
@@ -242,29 +235,36 @@ def model_selection(features, targets, n_splits, epochs):
     return best_params
 
 
-def predict(model, x_test, y_test, x_outer):
-    # change our data into tensors to work with PyTorch
-    x_test = torch.from_numpy(x_test).float()
-    y_test = torch.from_numpy(y_test).float()
-    x_outer = torch.from_numpy(x_outer).float()
-
-    # predict on internal test set
-    y_ipred = model(x_test)
-    iloss = torch_mee(y_test, y_ipred)
-
-    # predict on blind test set
-    y_outer_pred = model(x_outer)
-
-    # return predicted target on blind test set and losses on internal test set
-    return y_outer_pred.detach().numpy(), iloss.item()
+def predict(model, features, targets):
+    predictions = model.predict(features)
+    mee = torch_mee(targets, predictions)
+    accuracy = accuracy_score(targets, predictions)
+    return predictions, mee, accuracy
 
 
-def pytorch_nn(ms=True, n_splits=10 , epochs =2000):
-    logger.info("Initializing PyTorch...")
+def monk_pytorch(ms=True, n_splits=10 , epochs =2000):
 
-    filepath = abs_path("ML-CUP24-TR.csv", "data")
-    # extracting features and targets from csv
-    features, targets, features_test, targets_test = get_data(filepath, split = True)
+    # # Encoder
+    # encoder = OneHotEncoder()
+
+    # # Getting the path to the file
+    # data_path_train = abs_path('monks-3.train', 'data')
+    # data_path_test = abs_path('monks-3.test', 'data')
+
+    # # Splitting and encoding the training data
+    # features, targets = monk_data(data_path_train)
+    # features = encoder.fit_transform(features)
+
+    # # Splitting and encoding the test data
+    # features_test, targets_test = monk_data(data_path_test)
+    # features_test = encoder.transform(features_test)
+    encoder = OneHotEncoder()
+    features, targets = monk_data(abs_path('monks-3.train', 'data'))
+    features = encoder.fit_transform(features).toarray()
+    features_test, targets_test = monk_data(abs_path('monks-3.test', 'data'))
+    features_test = encoder.transform(features_test).toarray()
+    targets, targets_test = np.array(targets.values, dtype=np.float32), np.array(targets_test.values, dtype = np.float32)
+    indices = np.random.permutation(features.shape[0])
 
     # choose model selection or hand-given parameters
     if ms:
@@ -279,15 +279,15 @@ def pytorch_nn(ms=True, n_splits=10 , epochs =2000):
     pred_model = NeuralNetwork()
     model.apply(init_weights)
     pred_model.apply(init_weights)
-    pred_optimizer = optim.SGD(pred_model.parameters(), lr=params['eta'],
+    optimizer = optim.SGD(pred_model.parameters(), lr=params['eta'],
                     momentum=params['alpha'], weight_decay=params['lmb'])
-    optimizer = optim.SGD(model.parameters(), lr=params['eta'],
+    pred_optimizer = optim.SGD(model.parameters(), lr=params['eta'],
                     momentum=params['alpha'], weight_decay=params['lmb'])
 
     val_perc = (1/n_splits)
     val_size = int(val_perc * len(features))
 
-    indices = np.random.permutation(len(features))
+    # indices = np.random.permutation(len(features))
 
     # divide the indices into two groups
     indices_train = indices[val_size:]  
@@ -304,25 +304,22 @@ def pytorch_nn(ms=True, n_splits=10 , epochs =2000):
                                 batch_size=params['batch_size'], epochs=params['epochs'])
     
     # initialize and fit the model on both TR and VL
-    tr_pred_losses = fit(features, targets, model=pred_model, optimizer=pred_optimizer,
+    tr_pred_losses = fit(features, targets, model=pred_model, optimizer=pred_optimizer, validation_data=(features_test, targets_test),
                  batch_size=params['batch_size'], epochs=params['epochs'])
-
-    y_pred_outer, internal_losses = predict(model=pred_model,
-                                x_outer = get_outer(abs_path("ML-CUP24-TS.csv", "data")),
-                                x_test= features_test,
-                                y_test = targets_test)
-
+    
+    development_accuracy= accuracy_score(targets, pred_model(torch.from_numpy(features).float()))
+    pred_test, test_loss, test_accuracy = predict(model = pred_model, features = features, targets=targets) 
     print("TR loss (best-performing fold): ", tr_losses[-1])
     print("VL loss (best-performing fold): ", val_losses[-1])
     print("DV loss: ", tr_pred_losses[-1])
-    print("TS loss (training on both TR and VL): ", internal_losses)
+
+    print("Development accuracy: ", development_accuracy)
+    print("Test accuracy: ", test_accuracy)
    
     logger.info("Computation with PyTorch successfully ended!")
 
     plot_learning_curve(tr_losses, val_losses, epochs=epochs, savefig=True)
 
-    # generate csv file for MLCUP
-    w_csv(y_pred_outer)
 
 if __name__ == '__main__':
-    pytorch_nn(ms= False)
+    monk_pytorch(ms= False)

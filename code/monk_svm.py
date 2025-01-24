@@ -31,7 +31,7 @@ def model_selection(features, targets):
                         n_jobs=2, 
                         cv=folds,
                         scoring = 'accuracy',
-                        verbose=2,
+                        verbose=1,
                         return_train_score=True)
     
     # Grid results
