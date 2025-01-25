@@ -109,7 +109,7 @@ def model_selection(x, y, n_splits, epochs):
 
     end_time =  time.time() 
     elapsed_time = end_time - start_time
-    logger.info(f"Grid search concluded {elapsed_time}")
+    logger.info(f"Grid search concluded in {elapsed_time}")
     best_params = grid_result.best_params_
 
     # Summarizing results

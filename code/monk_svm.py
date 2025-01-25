@@ -1,3 +1,4 @@
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -37,6 +38,7 @@ def model_selection(features, targets):
     # Grid results
     grid_results = SVC_grid.fit(features, targets)
     logger.info("Starting theGrid Search...")
+    start_time = time.time()
 
     #TODO select the number of active processors w n_jobs; -1 means that all processors are used
     grid = GridSearchCV(estimator=classifier, param_grid=SVC_params, n_jobs=2, cv=10,
@@ -44,7 +46,9 @@ def model_selection(features, targets):
 
     grid_results = grid.fit(features, targets)
 
-    logger.info(f"Grid Search ended successfully")
+    end_time =  time.time() 
+    elapsed_time = end_time - start_time
+    logger.info(f"Grid Search ended successfully in {elapsed_time}")
 
     # means_train = abs(grid_results.cv_results_['mean_train_score'])
     # means_test = abs(grid_results.cv_results_['mean_test_score'])

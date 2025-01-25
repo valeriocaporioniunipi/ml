@@ -1,3 +1,4 @@
+import time
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -6,6 +7,7 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from utils import monk_data, abs_path
 from itertools import product
+from loguru import logger
 
 # Load MONK dataset
 features_test, targets_test = monk_data(abs_path('monks-3.test', 'data'))
@@ -51,6 +53,9 @@ alphas = [0.1, 0.5, 1.0]
 best_model = None
 best_accuracy = 0
 
+start_time = time.time()
+logger.info("Starting Grid Search for hyperparameter optimization")
+
 for eta, lambda_, alpha in product(etas, lambdas, alphas):
     model = BinaryClassificationNN(X_train.shape[1], 16)
     model.apply(weights_init)
@@ -77,6 +82,9 @@ for eta, lambda_, alpha in product(etas, lambdas, alphas):
             best_model = model
             best_params = {'eta': eta, 'lambda': lambda_, 'alpha': alpha}
 
+end_time =  time.time() 
+elapsed_time = end_time - start_time
+logger.info(f"Grid search concluded in {elapsed_time}")
 print(f'Best Params: {best_params}, Best Accuracy: {best_accuracy:.4f}')
 
 # Final training with best params
