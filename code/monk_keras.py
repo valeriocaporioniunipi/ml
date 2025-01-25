@@ -88,11 +88,11 @@ def model_selection(x, y, n_splits, epochs):
     model = KerasClassifier(model=create_nn, input_shape = input_shape, epochs=epochs, batch_size= 25, verbose=0)
 
     # Setting the grid search parameters
-    eta = [0.05, 0.5]
+    eta = [0.5, 0.05, 0.005]
 
-    alpha = [0.4, 0.6]
+    alpha = [0.1, 0.4, 0.7, 1.0]
 
-    lmb = [0.001, 0.01]
+    lmb = [0, 0.1, 0.01]
 
     param_grid = dict(model__eta=eta, model__alpha=alpha, model__lmb=lmb)
 

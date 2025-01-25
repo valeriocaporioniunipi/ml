@@ -47,9 +47,9 @@ def weights_init(m):
         nn.init.zeros_(m.bias)
 
 # Grid search parameters
-etas = [0.01, 0.001, 0.0001]
-lambdas = [0, 0.01, 0.1]
-alphas = [0.1, 0.5, 1.0]
+etas = [0.5, 0.05, 0.005]
+lambdas = [0, 0.1, 0.01]
+alphas = [0.1, 0.4, 0.7, 1.0]
 best_model = None
 best_accuracy = 0
 
