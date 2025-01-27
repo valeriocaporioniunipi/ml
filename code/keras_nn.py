@@ -81,7 +81,6 @@ def create_nn(input_shape,
     #     decay_steps,
     #     end_learning_rate,
     #     power=1.0  # Setted as one for linear decay
-# )
 
     # Adding optimizer for the model: # TODO change to learning_rate_fn for linear decay
     optimizer = optimizers.SGD(learning_rate=eta, momentum=alpha)
@@ -103,15 +102,15 @@ def model_selection(features, targets, n_splits, epochs):
 
     # grid search parameters
     #eta = np.arange(start=0.003, stop=0.01, step=0.001)
-    eta = [0.005, 0.05, 0.5]
+    eta = [0.0009, 0.001, 0.002, 0.003, 0.004]
     eta = [float(round(i, 4)) for i in list(eta)]
 
     #alpha = np.arange(start=0.4, stop=1, step=0.1)
-    alpha = [0.2, 0.4, 0.6, 0.8]
+    alpha = [0.2, 0.4, 0.6]
     alpha = [float(round(i, 1)) for i in list(alpha)]
 
     #lmb = np.arange(start=0.0005, stop=0.001, step=0.0001)
-    lmb = [0.00005, 0.0001, 0.001, 0.01]
+    lmb = [0.02, 0.01, 0.005, 0.001]
     lmb = [float(round(i, 4)) for i in list(lmb)]
 
     batch_size = [32, 64, 128]
@@ -122,7 +121,7 @@ def model_selection(features, targets, n_splits, epochs):
     kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
 
     grid = GridSearchCV(estimator=model, param_grid=param_grid, scoring=scorer, refit = False,
-        cv = kf, n_jobs = 2, return_train_score=True, verbose = 1)
+        cv = kf, n_jobs = 6, return_train_score=True, verbose = 1)
     
     # rescaling features
     scaler = StandardScaler()
@@ -273,4 +272,4 @@ def keras_network(ms = False, n_splits=5, epochs = 1000):
     w_csv(y_pred_outer)
 
 if __name__ == '__main__':
-    keras_network()
+    keras_network(ms = True)

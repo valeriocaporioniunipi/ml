@@ -3,7 +3,6 @@ import numpy as np
 import tensorflow as tf
 from loguru import logger
 from matplotlib import pyplot as plt
-from matplotlib import colormaps as cmaps
 from keras import Sequential
 from keras import optimizers
 from keras import metrics
@@ -13,7 +12,7 @@ from keras import regularizers
 from sklearn.model_selection import KFold, GridSearchCV
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import mean_squared_error, classification_report, accuracy_score
+from sklearn.metrics import mean_squared_error, classification_report
 from scikeras.wrappers import KerasClassifier
 
 from utils import monk_data, abs_path
@@ -100,7 +99,7 @@ def model_selection(x, y, n_splits, epochs):
     folds = KFold(n_splits=n_splits, shuffle=True, random_state=42)
 
     grid = GridSearchCV(estimator=model, param_grid=param_grid, scoring='neg_mean_squared_error', refit = 'accuracy',
-        cv = folds, n_jobs = 1, return_train_score=True, verbose = 0)
+        cv = folds, n_jobs = 8, return_train_score=True, verbose = 0)
 
     # Fitting grid search
     start_time = time.time()
@@ -168,7 +167,7 @@ def plot_acc_curve(history_dic, dataset, start_epoch=1, end_epoch=400, savefig=F
         plt.savefig(f"plot\keras{dataset}_acc", transparent = True)
     plt.show()
 
-def keras_network(ms = False, n_splits = 5, epochs = 140, dataset = 1):
+def keras_network(ms = False, n_splits = 5, epochs = 140, dataset = 2):
     logger.info("Initializing Keras...")
 
     encoder = OneHotEncoder(sparse_output=False) 
@@ -293,8 +292,8 @@ def keras_network(ms = False, n_splits = 5, epochs = 140, dataset = 1):
 
         logger.info("Computation with Keras successfully ended!")
 
-        plot_learning_curve(history_dic=history.history, dataset = dataset, end_epoch=epochs, savefig=False)
-        plot_acc_curve(history_dic=fit.history, dataset = dataset, end_epoch=epochs, savefig=False)
+        plot_learning_curve(history_dic=history.history, dataset = dataset, end_epoch=epochs, savefig=True)
+        plot_acc_curve(history_dic=fit.history, dataset = dataset, end_epoch=epochs, savefig=True)
 
 if __name__ == '__main__':
-    keras_network()
+    keras_network(ms= True)

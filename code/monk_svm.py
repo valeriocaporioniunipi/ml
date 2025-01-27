@@ -79,7 +79,7 @@ def plot_learning_curve(model, x, y, savefig = False):
     plt.xlabel("train size")
     plt.ylabel("loss")
     plt.legend(['loss TR', 'loss VL'])
-    plt.title(f'SVC learning curve \n {params}')
+    plt.title(f'SVC learning curve for Monk 1 problem with \n {params}')
 
     if savefig:
         plt.savefig("plot/svc_3_learning.pdf", transparent = True)
@@ -102,7 +102,7 @@ def plot_accuracy(model, x, y, x_test, y_test, savefig = False):
     plt.xlabel("train size")
     plt.ylabel("accuracy")
     plt.legend(['accuracy DV', 'accuracy TS'])
-    plt.title(f'SVC accuracy curve \n {params}')
+    plt.title(f'SVC accuracy curve for Monk 1 problem with \n {params}')
 
     if savefig:
         plt.savefig("plot/svc_3_accuracy.pdf", transparent = True)
@@ -114,8 +114,8 @@ def modeling_svm():
     encoder = OneHotEncoder()
 
     # Getting the path to the file
-    data_path_train = abs_path('monks-3.train', 'data')
-    data_path_test = abs_path('monks-3.test', 'data')
+    data_path_train = abs_path('monks-1.train', 'data')
+    data_path_test = abs_path('monks-1.test', 'data')
 
     # Splitting and encoding the training data
     features, targets = monk_data(data_path_train)
