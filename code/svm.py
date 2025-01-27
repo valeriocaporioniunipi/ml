@@ -13,6 +13,17 @@ from sklearn.multioutput import MultiOutputRegressor
 from utils import scorer, get_data, mean_euclidean_error, get_outer, abs_path, w_csv, euclidean_error
 
 def model_selection(features, targets):
+    """
+    Performs model selection using grid search on a Support Vector Regression (SVR) model wrapped in a MultiOutputRegressor.
+
+    :param features: The feature matrix for training data
+    :type features: np.ndarray
+    :param targets: The target matrix for training data
+    :type targets: np.ndarray
+
+    :return: The best set of hyperparameters found through grid search
+    :rtype: dict
+    """
     # fix random seed for reproducibility
     seed = 42
     np.random.seed(seed)
@@ -55,6 +66,21 @@ def model_selection(features, targets):
     return grid.best_params_
 
 def predict(model, features_test, targets_test, features_outer):
+    """
+    Makes predictions using a trained model on both internal test data and an external test set.
+
+    :param model: The trained model used for predictions
+    :type model: sklearn model or similar
+    :param features_test: The features of the internal test data
+    :type features_test: np.ndarray
+    :param targets_test: The true target values for the internal test data
+    :type targets_test: np.ndarray
+    :param features_outer: The features of the external test data (out-of-sample data)
+    :type features_outer: np.ndarray
+
+    :return: A tuple containing the predictions on the external test data and the loss on the internal test data
+    :rtype: tuple(np.ndarray, float)
+    """
 
     targets_pred = model.predict(features_test)
 
@@ -73,6 +99,21 @@ def predict(model, features_test, targets_test, features_outer):
 
 
 def plot_learning_curve(model, features, targets, savefig=False):
+    """
+    Plots the learning curve for a Support Vector Regression (SVR) model by evaluating training and validation scores
+    at different training sizes.
+
+    :param model: Trained SVR model used for plotting the learning curve
+    :type model: sklearn model (MultiOutputRegressor with SVR estimator)
+    :param features: The features used for training the model
+    :type features: np.ndarray
+    :param targets: The target values for training the model
+    :type targets: np.ndarray
+    :param savefig: Flag to save the plot as a PDF file (default is False)
+    :type savefig: bool
+
+    :return: None
+    """
 
     # dictify model's parameters
     p = model.get_params()
@@ -100,6 +141,15 @@ def plot_learning_curve(model, features, targets, savefig=False):
 
 
 def sklearn_svm(ms=True):
+    """
+    Function to train and evaluate a Support Vector Machine (SVM) model for multi-output regression using
+    grid search or pre-set parameters, and to make predictions on external test data.
+
+    :param ms: Flag to indicate whether to perform model selection via grid search (default is True)
+    :type ms: bool
+
+    :return: None
+    """
     logger.info("Initializing SVM...")
 
     filepath = abs_path("ML-CUP24-TR.csv", "data")

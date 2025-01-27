@@ -11,6 +11,17 @@ from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_sp
 from utils import monk_data, abs_path, scorer, mean_euclidean_error, euclidean_error
 
 def model_selection(features, targets):
+    """
+    Perform model selection using Grid Search to find the best hyperparameters for an SVC model.
+
+    :param features: input features for the model
+    :type features: numpy.ndarray or pandas.DataFrame
+    :param targets: actual target values for evaluation
+    :type targets: numpy.ndarray or pandas.DataFrame
+    
+    :return: best hyperparameters obtained from the grid search
+    :rtype: dict
+    """
     # fix random seed for reproducibility
     seed = 42
     np.random.seed(seed)
@@ -62,12 +73,40 @@ def model_selection(features, targets):
     return grid_results.best_params_
 
 def predict(model, features, targets):
+    """
+    Predict the target values using the given model and compute the evaluation metrics.
+
+    :param model: trained model to make predictions
+    :type model: Keras Sequential model or any other suitable trained model
+    :param features: input features for prediction
+    :type features: numpy.ndarray or pandas.DataFrame
+    :param targets: actual target values for evaluation
+    :type targets: numpy.ndarray or pandas.DataFrame
+    
+    :return: predicted values, Mean Squared Error (MSE) and accuracy of the model
+    :rtype: tuple (numpy.ndarray, float, float)
+    """
     predictions = model.predict(features)
     MSE = mean_squared_error(targets, predictions)
     accuracy = accuracy_score(targets, predictions)
     return predictions, MSE, accuracy
 
 def plot_learning_curve(model, x, y, savefig = False):
+    """
+    Plot the learning curve for the given model, showing training and validation losses.
+
+    :param model: trained model to evaluate the learning curve
+    :type model: scikit-learn estimator (e.g., SVC)
+    :param x: input features for training the model
+    :type x: numpy.ndarray or pandas.DataFrame
+    :param y: actual target values for training the model
+    :type y: numpy.ndarray or pandas.DataFrame
+    :param savefig: optional (default = False): whether to save the plot as a PDF file
+    :type savefig: bool
+    
+    :return: None
+    :rtype: None
+    """
     p = model.get_params()
     params = dict(kernel=p['kernel'], C=p['C'],
                   gamma=p['gamma'], class_weight = p['class_weight'])
@@ -86,6 +125,26 @@ def plot_learning_curve(model, x, y, savefig = False):
     plt.show()
 
 def plot_accuracy(model, x, y, x_test, y_test, savefig = False):
+    """
+    Plot the accuracy curve for the given model, showing training and testing accuracy for different training sizes.
+
+    :param model: trained model to evaluate the accuracy curve
+    :type model: scikit-learn estimator (e.g., SVC)
+    :param x: input features for training the model
+    :type x: numpy.ndarray or pandas.DataFrame
+    :param y: actual target values for training the model
+    :type y: numpy.ndarray or pandas.DataFrame
+    :param x_test: input features for testing the model
+    :type x_test: numpy.ndarray or pandas.DataFrame
+    :param y_test: actual target values for testing the model
+    :type y_test: numpy.ndarray or pandas.DataFrame
+    :param savefig: optional (default = False): whether to save the plot as a PDF file
+    :type savefig: bool
+    
+    :return: None
+    :rtype: None
+    """
+
     p = model.get_params()
     params = dict(kernel=p['kernel'], C=p['C'],
                   gamma=p['gamma'], class_weight = p['class_weight'])
@@ -109,6 +168,12 @@ def plot_accuracy(model, x, y, x_test, y_test, savefig = False):
     plt.show()
 
 def modeling_svm():
+    """
+    Perform modeling using an SVM classifier, evaluate the model, and generate learning and accuracy plots.
+
+    :return: None
+    :rtype: None
+    """
 
     # Encoder
     encoder = OneHotEncoder()

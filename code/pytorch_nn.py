@@ -20,7 +20,30 @@ ms_result = []
 np.random.seed(42)
 
 class NeuralNetwork(nn.Module):
+    """
+    A neural network class built using PyTorch's nn.Module to solve a multi-class classification problem.
+
+    :param units: optional (default = 32): number of units in each hidden layer
+    :type units: int
+    :param input: optional (default = 12): number of input features
+    :type input: int
+    :param output: optional (default = 3): number of output classes
+    :type output: int
+    :param hidden_layers: optional (default = 3): number of hidden layers
+    :type hidden_layers: int
+
+    :return: None
+    :rtype: None
+    """
     def __init__(self, units=32, input=12, output=3, hidden_layers=3):
+        """
+        Initializes the neural network with specified number of units in hidden layers, input size, and output size.
+
+        :param units: optional (default = 32): number of units in each hidden layer
+        :param input: optional (default = 12): number of input features
+        :param output: optional (default = 3): number of output classes
+        :param hidden_layers: optional (default = 3): number of hidden layers
+        """
         super().__init__()
         self.flatten = nn.Flatten()
 
@@ -40,17 +63,49 @@ class NeuralNetwork(nn.Module):
         logger.info(f"Model architecture: {self}")
 
     def forward(self, features):
+        """
+        Defines the forward pass for the neural network.
+
+        :param features: input features to the network (Tensor)
+        :type features: torch.Tensor
+
+        :return: logits (raw output of the network before activation)
+        :rtype: torch.Tensor
+        """
         features = self.flatten(features)
         logits = self.linear_relu_stack(features)
         return logits
 
 def init_weights(m):
+    """
+    Initializes the weights of a linear layer using the Xavier normal distribution.
+
+    :param m: the module (layer) whose weights are to be initialized
+    :type m: nn.Module
+
+    :return: None
+    :rtype: None
+    """
     if type(m) == Linear:
         xavier_normal_(m.weight)
 
 def plot_learning_curve(losses, val_losses, epochs, start_epoch=1, savefig=False):
     """
-    function that shows the learning curve
+    Plots the learning curve showing the training loss and validation loss over epochs.
+
+    :param losses: list of training losses for each epoch
+    :type losses: list
+    :param val_losses: list of validation losses for each epoch
+    :type val_losses: list
+    :param epochs: total number of epochs for the plot
+    :type epochs: int
+    :param start_epoch: optional (default = 1): the starting epoch for the plot
+    :type start_epoch: int
+    :param savefig: optional (default = False): whether to save the plot as a PDF file
+    :type savefig: bool
+
+    :return: None
+    :rtype: None
     """
     plt.plot(range(start_epoch, epochs), losses[start_epoch:])
     plt.plot(range(start_epoch, epochs), val_losses[start_epoch:])
@@ -67,9 +122,27 @@ def plot_learning_curve(losses, val_losses, epochs, start_epoch=1, savefig=False
     plt.show()
 
 def make_train_step(model, loss_fn, optimizer):
+    """
+    Creates a training step function that performs one iteration of training:
+    setting the model to training mode, making predictions, computing loss,
+    performing backpropagation, updating model parameters, and zeroing gradients.
+
+    :param model: the neural network model
+    :type model: nn.Module
+    :param loss_fn: the loss function used for calculating the error
+    :type loss_fn: callable
+    :param optimizer: the optimizer used to update the model parameters
+    :type optimizer: Optimizer
+
+    :return: A function that performs one training step
+    :rtype: function
+    """
 
     # Builds the inner function, which performs a step in the training loop
     def train_step(features, targets):
+        """
+        Inner function of make_train_step
+        """
 
         # setting the model to TRAIN mode
         model.train()
@@ -90,6 +163,30 @@ def make_train_step(model, loss_fn, optimizer):
 
 
 def fit(x_train, y_train, model, optimizer, validation_data = None, loss_fn=torch_mee, epochs=200, batch_size=64):
+    """
+    Trains the model for a specified number of epochs, updating weights using backpropagation, and computes the loss
+    for both training and validation datasets. Optionally, applies learning rate scheduling.
+
+    :param x_train: training features
+    :type x_train: numpy.ndarray
+    :param y_train: training labels
+    :type y_train: numpy.ndarray
+    :param model: the neural network model
+    :type model: nn.Module
+    :param optimizer: the optimizer used to update the model parameters
+    :type optimizer: Optimizer
+    :param validation_data: optional (default = None): a tuple of validation features and labels
+    :type validation_data: tuple, optional
+    :param loss_fn: optional (default = torch_mee): the loss function used for calculating the error
+    :type loss_fn: callable
+    :param epochs: optional (default = 200): the number of training epochs
+    :type epochs: int
+    :param batch_size: optional (default = 64): the batch size used for training
+    :type batch_size: int
+
+    :return: training losses (and validation losses if validation data is provided)
+    :rtype: list (or tuple of lists)
+    """
 
     # define a scheduler for variable eta (decaying learning rate)
     scheduler = optim.lr_scheduler.LinearLR(optimizer, start_factor = 1, end_factor = 0.01, total_iters=400)
@@ -153,6 +250,33 @@ def fit(x_train, y_train, model, optimizer, validation_data = None, loss_fn=torc
 def cross_validation(features, targets,
                     n_splits, epochs,
                     eta, alpha, lmb, batch_size):
+    """
+    Performs k-fold cross-validation by training and evaluating the model on different splits of the data.
+    This function trains a model for each fold and returns the training and validation losses, as well as the total fitting time.
+
+    :param features: the input features for training
+    :type features: numpy.ndarray
+    :param targets: the target labels for training
+    :type targets: numpy.ndarray
+    :param n_splits: the number of splits for cross-validation (k-fold)
+    :type n_splits: int
+    :param epochs: number of epochs to train the model
+    :type epochs: int
+    :param eta: learning rate for the optimizer
+    :type eta: float
+    :param alpha: momentum for the optimizer
+    :type alpha: float
+    :param lmb: regularization parameter (L2)
+    :type lmb: float
+    :param batch_size: the batch size for training
+    :type batch_size: int
+
+    :return: A tuple containing:
+        - params: a dictionary with the hyperparameters used
+        - cv_loss: a list of lists containing training and validation losses for each fold
+        - fit_time: the total fitting time for the cross-validation process
+    :rtype: tuple
+    """
     
     kf = KFold(n_splits=n_splits, random_state=42, shuffle=True)
     cv_loss = []
@@ -183,10 +307,37 @@ def cross_validation(features, targets,
 
 # callback function for the multiprocessing task
 def log_ms_result(result):
+    """
+    Logs the result of a model selection (MS) process by appending the result to a list.
+
+    :param result: the result of the model selection process
+    :type result: any type (e.g., float, dict, etc.)
+
+    :return: None
+    """
     ms_result.append(result)
 
 
 def model_selection(features, targets, n_splits, epochs):
+    """
+    Performs a grid search for hyperparameter tuning using cross-validation and multiprocessing.
+    
+    This function conducts a grid search over the specified hyperparameters (`eta`, `alpha`, `lmb`, 
+    and `batch_size`) for model training. It uses the `cross_validation` function and logs the results 
+    of each parameter combination.
+
+    :param features: the input features for training the model
+    :type features: numpy.ndarray
+    :param targets: the target labels for training the model
+    :type targets: numpy.ndarray
+    :param n_splits: the number of splits for cross-validation
+    :type n_splits: int
+    :param epochs: the number of epochs for training the model
+    :type epochs: int
+
+    :return: the hyperparameters corresponding to the best performing model
+    :rtype: dict
+    """
     # define a pool of tasks, for multiprocessing
     pool = mp.Pool(processes=mp.cpu_count())
 
@@ -243,6 +394,21 @@ def model_selection(features, targets, n_splits, epochs):
 
 
 def predict(model, x_test, y_test, x_outer):
+    """
+    Makes predictions using the trained model on both an internal test set and an external (blind) test set.
+
+    :param model: the trained model used to make predictions
+    :type model: nn.Module
+    :param x_test: the input features of the internal test set
+    :type x_test: numpy.ndarray
+    :param y_test: the true target labels of the internal test set
+    :type y_test: numpy.ndarray
+    :param x_outer: the input features of the external (blind) test set
+    :type x_outer: numpy.ndarray
+
+    :return: predicted targets for the external test set and the loss on the internal test set
+    :rtype: tuple (numpy.ndarray, float)
+    """
     # change our data into tensors to work with PyTorch
     x_test = torch.from_numpy(x_test).float()
     y_test = torch.from_numpy(y_test).float()
@@ -260,6 +426,18 @@ def predict(model, x_test, y_test, x_outer):
 
 
 def pytorch_nn(ms=True, n_splits=10 , epochs =2000):
+    """
+    Initializes and trains a PyTorch neural network model, with optional hyperparameter tuning via grid search.
+
+    :param ms: optional (default=True), whether to perform model selection using grid search
+    :type ms: bool
+    :param n_splits: optional (default=10), number of splits for cross-validation
+    :type n_splits: int
+    :param epochs: optional (default=2000), number of training epochs
+    :type epochs: int
+
+    :return: None
+    """
     logger.info("Initializing PyTorch...")
 
     filepath = abs_path("ML-CUP24-TR.csv", "data")
