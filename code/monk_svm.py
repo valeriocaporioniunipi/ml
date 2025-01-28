@@ -4,11 +4,11 @@ import matplotlib.pyplot as plt
 
 from loguru import logger
 from sklearn.svm import SVC
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.metrics import accuracy_score, classification_report, mean_squared_error
 from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split, learning_curve
 
-from utils import monk_data, abs_path, scorer, mean_euclidean_error, euclidean_error
+from utils import monk_data, abs_path, scorer, mean_euclidean_error, euclidean_error, standardize_data
 
 def model_selection(features, targets):
     """
@@ -91,80 +91,78 @@ def predict(model, features, targets):
     accuracy = accuracy_score(targets, predictions)
     return predictions, MSE, accuracy
 
-def plot_learning_curve(model, x, y, savefig = False):
+def plot_combined_curves(model, x, y, x_test, y_test, savefig=False):
     """
-    Plot the learning curve for the given model, showing training and validation losses.
+    Plot the learning curve and accuracy curve side by side for the given model.
 
-    :param model: trained model to evaluate the learning curve
+    :param model: trained model to evaluate
     :type model: scikit-learn estimator (e.g., SVC)
-    :param x: input features for training the model
+    :param x: input features for training
     :type x: numpy.ndarray or pandas.DataFrame
-    :param y: actual target values for training the model
+    :param y: target values for training
     :type y: numpy.ndarray or pandas.DataFrame
-    :param savefig: optional (default = False): whether to save the plot as a PDF file
-    :type savefig: bool
-    
-    :return: None
-    :rtype: None
-    """
-    p = model.get_params()
-    params = dict(kernel=p['kernel'], C=p['C'],
-                  gamma=p['gamma'], class_weight = p['class_weight'])
-    
-    train_sizes, train_scores_svc, val_scores_svc = learning_curve(model, x, y, train_sizes=np.linspace(0.1, 1, 60), scoring="neg_mean_squared_error", n_jobs = 2, cv = 62, verbose=1)
-
-    plt.plot(train_sizes, np.mean(np.abs(train_scores_svc), axis=1))
-    plt.plot(train_sizes, np.mean(np.abs(val_scores_svc), axis=1))
-    plt.xlabel("train size")
-    plt.ylabel("loss")
-    plt.legend(['loss TR', 'loss VL'])
-    plt.title(f'SVC learning curve for Monk 1 problem with \n {params}')
-
-    if savefig:
-        plt.savefig("plot/svc_3_learning.pdf", transparent = True)
-    plt.show()
-
-def plot_accuracy(model, x, y, x_test, y_test, savefig = False):
-    """
-    Plot the accuracy curve for the given model, showing training and testing accuracy for different training sizes.
-
-    :param model: trained model to evaluate the accuracy curve
-    :type model: scikit-learn estimator (e.g., SVC)
-    :param x: input features for training the model
-    :type x: numpy.ndarray or pandas.DataFrame
-    :param y: actual target values for training the model
-    :type y: numpy.ndarray or pandas.DataFrame
-    :param x_test: input features for testing the model
+    :param x_test: input features for testing
     :type x_test: numpy.ndarray or pandas.DataFrame
-    :param y_test: actual target values for testing the model
+    :param y_test: target values for testing
     :type y_test: numpy.ndarray or pandas.DataFrame
-    :param savefig: optional (default = False): whether to save the plot as a PDF file
+    :param savefig: optional (default = False): whether to save the plot
     :type savefig: bool
     
     :return: None
-    :rtype: None
     """
-
     p = model.get_params()
     params = dict(kernel=p['kernel'], C=p['C'],
-                  gamma=p['gamma'], class_weight = p['class_weight'])
+                 gamma=p['gamma'], class_weight=p['class_weight'])
     
-    train_sizes, train_scores_svc, val_scores_svc = learning_curve(model, x, y, train_sizes=np.linspace(0.1, 1, 60), n_jobs = 2, cv = 62, verbose=1)
+    # Create a figure with two subplots side by side
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
+    
+    # Learning Curve (Left Plot)
+    train_sizes, train_scores_svc, val_scores_svc = learning_curve(
+        model, x, y, 
+        train_sizes=np.linspace(0.1, 1, 60),
+        scoring="neg_mean_squared_error",
+        n_jobs=2,
+        cv=62,
+        verbose=1
+    )
+    
+    ax1.plot(train_sizes, np.mean(np.abs(train_scores_svc), axis=1))
+    ax1.plot(train_sizes, np.mean(np.abs(val_scores_svc), axis=1), linestyle="dashed")
+    ax1.set_xlabel("Train Size")
+    ax1.set_ylabel("Loss")
+    ax1.legend(['Loss TR', 'Loss VL'])
+    ax1.set_title(f'SVC learning curve for Monk 1 problem with \n {params}')
+    
+    # Accuracy Curve (Right Plot)
+    train_sizes, train_scores_svc, val_scores_svc = learning_curve(
+        model, x, y,
+        train_sizes=np.linspace(0.1, 1, 60),
+        n_jobs=2,
+        cv=62,
+        verbose=1
+    )
+    
     test_accuracies = []
     for size in train_sizes:
-        model.fit(x[:size], y[:size])
+        model.fit(x[:int(size)], y[:int(size)])
         y_test_pred = model.predict(x_test)
         test_accuracies.append(accuracy_score(y_test, y_test_pred))
-    plt.plot(train_sizes, np.mean(np.abs(train_scores_svc), axis=1))
-    #plt.plot(train_sizes, np.mean(np.abs(val_scores_svc), axis=1))
-    plt.plot(train_sizes, np.abs(test_accuracies))
-    plt.xlabel("train size")
-    plt.ylabel("accuracy")
-    plt.legend(['accuracy DV', 'accuracy TS'])
-    plt.title(f'SVC accuracy curve for Monk 1 problem with \n {params}')
+    
+    ax2.plot(train_sizes, np.mean(np.abs(train_scores_svc), axis=1))
+    ax2.plot(train_sizes, np.abs(test_accuracies), linestyle="dashed")
+    ax2.set_xlabel("Train Size")
+    ax2.set_ylabel("Accuracy")
+    ax2.legend(['Accuracy DV', 'Accuracy TS'])
+    ax2.set_title(f'SVC accuracy for Monk 1 problem with \n {params}')
 
+    
+    # Adjust layout to prevent overlap
+    plt.tight_layout()
+    
     if savefig:
-        plt.savefig("plot/svc_3_accuracy.pdf", transparent = True)
+        plt.savefig("plot/svc_combined_plots.pdf", transparent=True, bbox_inches='tight')
+    
     plt.show()
 
 def modeling_svm():
@@ -176,11 +174,12 @@ def modeling_svm():
     """
 
     # Encoder
-    encoder = OneHotEncoder()
+    encoder = OneHotEncoder(sparse_output=False)
+    scaler = StandardScaler()
 
     # Getting the path to the file
-    data_path_train = abs_path('monks-1.train', 'data')
-    data_path_test = abs_path('monks-1.test', 'data')
+    data_path_train = abs_path('monks-3.train', 'data')
+    data_path_test = abs_path('monks-3.test', 'data')
 
     # Splitting and encoding the training data
     features, targets = monk_data(data_path_train)
@@ -189,6 +188,9 @@ def modeling_svm():
     # Splitting and encoding the test data
     features_test, targets_test = monk_data(data_path_test)
     features_test = encoder.transform(features_test)
+
+    #features = scaler.fit_transform(features)
+    #features_test = scaler.transform(features_test)
 
     # Finding the best parameters through the grid search
     best_parameters = model_selection(features, targets)
@@ -220,8 +222,7 @@ def modeling_svm():
     print(classification_report(pred_test, targets_test))
 
     svc = SVC(**best_parameters, random_state = 42)
-    plot_learning_curve(svc, features, targets, savefig=True)
-    plot_accuracy(svc, features, targets, features_test, targets_test, savefig=True )
+    plot_combined_curves(svc, features, targets, features_test, targets_test, savefig=True)
 
 
 if __name__ == '__main__':

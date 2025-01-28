@@ -13,7 +13,7 @@ from sklearn.model_selection import KFold, GridSearchCV
 from sklearn.preprocessing import StandardScaler
 from scikeras.wrappers import KerasRegressor
 
-from utils import abs_path, get_data, get_outer, euclidean_error, mean_euclidean_error, scorer, w_csv 
+from utils import abs_path, get_data, get_outer, euclidean_error, mean_euclidean_error, scorer, w_csv, standardize_data 
 
 # random seed 
 seed = 42
@@ -115,18 +115,18 @@ def model_selection(features, targets, n_splits, epochs):
 
     # grid search parameters
     #eta = np.arange(start=0.003, stop=0.01, step=0.001)
-    eta = [0.0009, 0.001, 0.002, 0.003, 0.004]
+    eta = [0.001, 0.005, 0.01]
     eta = [float(round(i, 4)) for i in list(eta)]
 
     #alpha = np.arange(start=0.4, stop=1, step=0.1)
-    alpha = [0.2, 0.4, 0.6]
+    alpha = [0.3, 0.4, 0.5]
     alpha = [float(round(i, 1)) for i in list(alpha)]
 
     #lmb = np.arange(start=0.0005, stop=0.001, step=0.0001)
-    lmb = [0.02, 0.01, 0.005, 0.001]
+    lmb = [0.0001, 0.0001, 0.001]
     lmb = [float(round(i, 4)) for i in list(lmb)]
 
-    batch_size = [32, 64, 128]
+    batch_size = [64]
 
     param_grid = dict(model__eta=eta, model__alpha=alpha, model__lmb=lmb, batch_size = batch_size)
 
@@ -195,21 +195,21 @@ def plot_learning_curve(history_dic, start_epoch=1, end_epoch=400, savefig=False
     lgd = ['loss TR']
     plt.plot(range(start_epoch, end_epoch), history_dic['loss'][start_epoch:])
     if "val_loss" in history_dic:
-        plt.plot(range(start_epoch, end_epoch), history_dic['val_loss'][start_epoch:])
+        plt.plot(range(start_epoch, end_epoch), history_dic['val_loss'][start_epoch:], linestyle = 'dashed')
         lgd.append('loss VL')
 
-    plt.xlabel("epoch")
-    plt.ylabel("loss")
-    plt.yscale('log')
-    plt.title(f'Keras learning curve')
-    plt.legend(lgd)
+    plt.xlabel("epoch", fontsize = 20)
+    plt.ylabel("loss", fontsize = 20)
+    #plt.yscale('log')
+    plt.title(f'Keras learning curve', fontsize = 20)
+    plt.legend(lgd, fontsize = 20)
 
     if savefig:
         plt.savefig("plot/NN_Keras.pdf", transparent = True)
     plt.show()
 
 
-def keras_network(ms = False, n_splits=5, epochs = 1000):
+def keras_network(ms = False, n_splits=5, epochs = 600):
     """
     Train a Keras neural network with optional hyperparameter optimization and evaluate its performance.
 
@@ -225,6 +225,8 @@ def keras_network(ms = False, n_splits=5, epochs = 1000):
     filepath = abs_path("ML-CUP24-TR.csv", "data")
     # extracting features and targets from csv
     features, targets, features_test, targets_test = get_data(filepath, split = True)
+
+    features, features_test, targets, targets_test = standardize_data(features, features_test, targets, targets_test)
     # Standardization of features, features will be standardized after k-folding
     scaler = StandardScaler()
     # definition of the k-folding
@@ -236,6 +238,7 @@ def keras_network(ms = False, n_splits=5, epochs = 1000):
         params = model_selection(features, targets, n_splits=n_splits, epochs=epochs)
     else:
         params = dict(model__eta=0.002, model__lmb=0.007, model__alpha=0.4, model__batch_size=32)
+        params = dict(model__eta=0.01, model__lmb=0.0001, model__alpha=0.3, model__batch_size=64)
         logger.info(f"Parameters have been chosen manually: {params}")
     
     # the model is now created
@@ -257,7 +260,7 @@ def keras_network(ms = False, n_splits=5, epochs = 1000):
     colormap = cmaps.get_cmap('tab20')
     colors = [colormap(i) for i in range(n_splits + 1)]
     # preparing the 3 plots
-    fig, ax = plt.subplots(2, 2, figsize=(12, 12))  # 2 rows, 2 columns grid
+    fig, ax = plt.subplots(3, 1, figsize=(12, 12)) 
     ax = ax.flatten()  # flattening to make it easier to access the axes
 
     # leave the last subplot empty
@@ -267,15 +270,15 @@ def keras_network(ms = False, n_splits=5, epochs = 1000):
         ax[i].set_ylabel('predicted')
         ax[i].set_title(f'target {i+1} - actual vs predicted')
     # hide the last axis (empty subplot)
-    ax[3].set_xlabel('loss')
+    #ax[3].set_xlabel('loss')
 
     for i, (train_index, test_index) in enumerate(kf.split(features), 1):
         x_train, x_val = features[train_index], features[test_index]
         y_train, y_val = targets[train_index], targets[test_index]
 
         # standardizing features after the split
-        x_train = scaler.fit_transform(x_train)
-        x_val = scaler.transform(x_val)
+        #x_train = scaler.fit_transform(x_train)
+        #x_val = scaler.transform(x_val)
 
         # refreshing the weights
         model.set_weights(initial_weights)
@@ -294,12 +297,16 @@ def keras_network(ms = False, n_splits=5, epochs = 1000):
             history = fit
 
         # plotting actual vs predicted target values for every fold
+        shape_vector = np.array(["*", "+", "x", "s", "o"])
+
         for j in range(3):  # lopping over each target dimension
-            ax[j].scatter(y_val[:, j], y_pred[:, j], alpha=0.5, color=colors[i],
+            ax[j].scatter(y_val[:, j], y_pred[:, j], alpha=0.5, color=colors[i], marker = shape_vector[i-1],
                         label=f'Fold {i} - MAE = {np.round(mae[j], 2)}')
             ax[j].plot([y_val[:, j].min(), y_val[:, j].max()], 
                     [y_val[:, j].min(), y_val[:, j].max()], 'k--', lw=2)  # Ideal line y=x
             ax[j].legend()
+
+    plt.show()
         
     # plotting the best history over the folds
     tr_losses = history.history['loss']
@@ -322,4 +329,4 @@ def keras_network(ms = False, n_splits=5, epochs = 1000):
     w_csv(y_pred_outer)
 
 if __name__ == '__main__':
-    keras_network(ms = True)
+    keras_network(ms = False)

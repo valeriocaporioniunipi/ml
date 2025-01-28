@@ -10,12 +10,11 @@ from keras import layers
 from keras import regularizers
 
 from sklearn.model_selection import KFold, GridSearchCV
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.metrics import mean_squared_error, classification_report
 from scikeras.wrappers import KerasClassifier
 
-from utils import monk_data, abs_path
+from utils import monk_data, abs_path, standardize_data 
  
 seed = 42
 np.random.seed(seed)
@@ -82,7 +81,6 @@ def create_nn(input_shape,
     return model
 
 def model_selection(x, y, n_splits, epochs):
-
     """
     Perform hyperparameter optimization using grid search with cross-validation.
 
@@ -103,17 +101,14 @@ def model_selection(x, y, n_splits, epochs):
     :rtype: dict
     """
     
-    
     input_shape = np.shape(x)[1]
     
-    model = KerasClassifier(model=create_nn, input_shape = input_shape, epochs=epochs, batch_size= 25, verbose=0)
+    model = KerasClassifier(model=create_nn, input_shape = input_shape, epochs=epochs, batch_size= 64, verbose=0)
 
     # Setting the grid search parameters
-    eta = [0.5, 0.05, 0.005]
-
+    eta = [0.8]
     alpha = [0.1, 0.4, 0.7, 1.0]
-
-    lmb = [0, 0.1, 0.01]
+    lmb = [0.0001, 0.01, 0.01]
 
     param_grid = dict(model__eta=eta, model__alpha=alpha, model__lmb=lmb)
 
@@ -165,64 +160,44 @@ def predict(model, features_test, targets_test):
     
     return targets_pred, test_loss
 
-def plot_learning_curve(history_dic, dataset, start_epoch=1, end_epoch=400, savefig=False):
+def plot_curves(history_dic, fit_history, dataset, params, start_epoch=1, end_epoch=400, savefig=False):
     """
-    Plot the learning curve for training and validation losses.
-
-    This function visualizes the progression of the training and validation losses
-    across epochs in logarithmic scale, providing insights into the model's performance
-    during training.
-
-    :param history_dic: Dictionary containing training history with keys 'loss' and optionally 'val_loss'.
-                        Typically, this is `history.history` returned from `model.fit()`.
-    :type history_dic: dict
-    :param start_epoch: The epoch number at which the plot should start. Defaults to 1.
-    :type start_epoch: int
-    :param end_epoch: The epoch number at which the plot should end. Defaults to 400.
-    :type end_epoch: int
-    :param savefig: Whether to save the generated plot as a file. Defaults to False.
-    :type savefig: bool
+    Plot both learning and accuracy curves side by side.
     
-    :return: None
+    :param history_dic: Dictionary containing training history for learning curve
+    :param fit_history: Dictionary containing history for accuracy curve
+    :param dataset: Dataset identifier for plot title
+    :param start_epoch: Starting epoch for the plot
+    :param end_epoch: Ending epoch for the plot
+    :param savefig: Whether to save the plot as a file
     """
-
-    plt.plot(range(start_epoch, end_epoch), history_dic['loss'][start_epoch:])
-    plt.plot(range(start_epoch, end_epoch), history_dic['val_loss'][start_epoch:])
-    plt.xlabel("epoch")
-    plt.ylabel("loss")
-    plt.yscale('log')
-    plt.title(f'Keras learning curve on {dataset} Monk problem')
-    plt.legend(['loss TR','loss VL'])
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
+    
+    # Learning curve (left subplot)
+    ax1.plot(range(start_epoch, end_epoch), history_dic['loss'][start_epoch:])
+    ax1.plot(range(start_epoch, end_epoch), history_dic['val_loss'][start_epoch:], linestyle = 'dashed')
+    ax1.set_xlabel("epoch")
+    ax1.set_ylabel("loss")
+    ax1.set_yscale('log')
+    ax1.set_title(f'Keras learning curve for Monk {dataset} problem with \n {params}')
+    ax1.legend(['loss TR','loss VL'])
+    
+    # Accuracy curve (right subplot)
+    ax2.plot(range(start_epoch, end_epoch), fit_history['accuracy'][start_epoch:])
+    ax2.plot(range(start_epoch, end_epoch), fit_history['val_accuracy'][start_epoch:], linestyle = 'dashed')
+    ax2.set_xlabel("epoch")
+    ax2.set_ylabel("accuracy")
+    ax2.set_yscale('log')
+    ax2.set_title(f'Keras accuracy on {dataset} Monk problem')
+    ax2.set_title(f'Keras accuracy curve for Monk {dataset} problem with \n {params}')
+    ax2.legend(['accuracy DV', 'accuracy TS'])
+    
+    plt.tight_layout()
     if savefig:
-        plt.savefig(f"plot\keras{dataset}_learning", transparent = True)
+        plt.savefig(f"plot/keras{dataset}_combined", transparent=True)
     plt.show()
 
-def plot_acc_curve(history_dic, dataset, start_epoch=1, end_epoch=400, savefig=False):
-    """
-    Plot the accuracy curve for training and validation sets.
-
-    :param history_dic: Dictionary containing the training history. Keys should include 'accuracy' and optionally 'val_accuracy'.
-    :type history_dic: dict
-    :param start_epoch: Starting epoch for the plot. Defaults to 1.
-    :type start_epoch: int
-    :param end_epoch: Ending epoch for the plot. Defaults to 400.
-    :type end_epoch: int
-    :param savefig: Whether to save the plot as a file. Defaults to False.
-    :type savefig: bool
-    """
-
-    plt.plot(range(start_epoch, end_epoch), history_dic['accuracy'][start_epoch:])
-    plt.plot(range(start_epoch, end_epoch), history_dic['val_accuracy'][start_epoch:])
-    plt.xlabel("epoch")
-    plt.ylabel("accuracy")
-    plt.yscale('log')
-    plt.title(f'Keras accuracy on {dataset} Monk problem')
-    plt.legend(['accuracy DV', 'accuracy TS'])
-    if savefig:
-        plt.savefig(f"plot\keras{dataset}_acc", transparent = True)
-    plt.show()
-
-def keras_network(ms = False, n_splits = 5, epochs = 140, dataset = 2):
+def keras_network(ms = False, n_splits = 5, epochs = 150, dataset = 3):
     """
     Train and evaluate a neural network model on one of the Monk datasets using Keras, with k-fold cross-validation.
 
@@ -240,8 +215,8 @@ def keras_network(ms = False, n_splits = 5, epochs = 140, dataset = 2):
     """
     logger.info("Initializing Keras...")
 
-    encoder = OneHotEncoder(sparse_output=False) 
-    scaler = StandardScaler()
+    encoder = OneHotEncoder(sparse_output=False)
+    scaler = StandardScaler() 
 
     if dataset == 1 or dataset == 2 or dataset ==3:
         iterations = 1
@@ -264,10 +239,14 @@ def keras_network(ms = False, n_splits = 5, epochs = 140, dataset = 2):
             
         # Reading and splitting the data
         features, targets = monk_data(data_path_train)
-        features = encoder.fit_transform(features)
-
         features_test, targets_test = monk_data(data_path_test)
+
+        # Apply one-hot encoding and standardization
+        features = encoder.fit_transform(features)
         features_test = encoder.transform(features_test)
+        
+        features = scaler.fit_transform(features)
+        features_test = scaler.transform(features_test)
 
         # Defining of the k-folding
         folds = KFold(n_splits=n_splits, shuffle=True, random_state=42)
@@ -277,7 +256,7 @@ def keras_network(ms = False, n_splits = 5, epochs = 140, dataset = 2):
             logger.info("Choosing hyperparameters with a GridSearch")
             params = model_selection(features, targets, n_splits=n_splits, epochs=epochs)
         else:
-            params = dict(model__eta=0.6, model__lmb=0.0001, model__alpha=0.5, model__batch_size=32)
+            params = dict(model__eta=0.2, model__lmb=0.001, model__alpha=0.1, model__batch_size=64)
             logger.info(f"Parameters have been chosen manually: {params}")
 
         # Creation of the model
@@ -313,6 +292,7 @@ def keras_network(ms = False, n_splits = 5, epochs = 140, dataset = 2):
 
             model.set_weights(initial_weights)
             fit = model.fit(features_train, targets_train, epochs=epochs,
+                        batch_size=params["model__batch_size"],
                         validation_data=(features_val, targets_val), verbose=0)
 
             targets_pred_val = model.predict(features_val)
@@ -329,6 +309,7 @@ def keras_network(ms = False, n_splits = 5, epochs = 140, dataset = 2):
 
         prediction_model.set_weights(initial_weights)
         fit = prediction_model.fit(features, targets, epochs=epochs,
+                                   batch_size=params["model__batch_size"],
                                    validation_data=(features_test, targets_test), verbose=0)
 
         dv_accuracy = fit.history['accuracy']
@@ -362,8 +343,7 @@ def keras_network(ms = False, n_splits = 5, epochs = 140, dataset = 2):
 
         logger.info("Computation with Keras successfully ended!")
 
-        plot_learning_curve(history_dic=history.history, dataset = dataset, end_epoch=epochs, savefig=True)
-        plot_acc_curve(history_dic=fit.history, dataset = dataset, end_epoch=epochs, savefig=True)
+        plot_curves(history_dic=history.history, fit_history=fit.history, params = params, dataset=dataset, end_epoch=epochs, savefig=True)
 
 if __name__ == '__main__':
-    keras_network(ms= True)
+    keras_network(ms= False)

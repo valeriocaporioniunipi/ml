@@ -9,6 +9,7 @@ import torch
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+from sklearn.preprocessing import StandardScaler
 from loguru import logger
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import make_scorer
@@ -47,7 +48,7 @@ def get_data(filepath, target_col=3, ex_cols=1, split = False):
 
     :param filepath: Path to the CSV file.
     :type filepath: str
-    :param target_col: Number of last columns containing targets.
+    :param target_col: Number of last columns containing targets. (default = 3)
     :type target_col: (optional): int
     :param ex_cols: Number of initial columns to exclude from the features (default is 1).
     :type ex_cols: (optional): int
@@ -113,14 +114,15 @@ def get_outer(filepath, ex_cols=1):
     return outer_data
 
 def monk_data(data_file_path):
+    """
+    Load and preprocess the MONK dataset from the given file path.
 
-    '''
-    This function takes as input the path to the document and splits it into columns. 
-    Then it assigns the proper columns to the features and label variables X and y.
-
-    Args:
-        path: the path to the document
-    '''
+    :param data_file_path: Path to the dataset file (CSV format)
+    :type data_file_path: str
+    
+    :return: Preprocessed features (X) and target values (y)
+    :rtype: tuple (pandas.DataFrame, pandas.Series)
+    """
 
     data = pd.read_csv(data_file_path, header = None)
     df = data[0].str.split(expand=True)
@@ -179,27 +181,78 @@ def target_distribution(target, multitarget = False, show = False):
 
 # loss function for Keras and SVM models
 def euclidean_error(y_true, y_pred):
+    """
+    Compute the Euclidean error (distance) between the true and predicted values.
+
+    :param y_true: True target values
+    :type y_true: tensorflow.Tensor
+    :param y_pred: Predicted values
+    :type y_pred: tensorflow.Tensor
+    
+    :return: Euclidean error (distance) between the true and predicted values
+    :rtype: tensorflow.Tensor
+    """
     return tf.sqrt(tf.reduce_sum(tf.square(y_pred - y_true), axis=-1))
 
 def euclidean_error_scorer(y_true, y_pred):
+    """
+    Compute the Euclidean error (distance) between the true and predicted values and return it as a scalar.
+
+    :param y_true: True target values
+    :type y_true: tensorflow.Tensor
+    :param y_pred: Predicted values
+    :type y_pred: tensorflow.Tensor
+    
+    :return: Euclidean error (distance) between the true and predicted values as a scalar
+    :rtype: float
+    """
+
     mee = euclidean_error(y_true=y_true, y_pred=y_pred)
     return mee.numpy()
 
-def euclidean_error_scorer2(y_true, y_pred):
-    mee = euclidean_error(y_true=y_true, y_pred=y_pred)
-    return mee.eval()
-
 # it retrieves the mean value of all the passed losses
 def mean_euclidean_error(y_true, y_pred):
+    """
+    Compute the mean Euclidean error (average distance) between the true and predicted values.
+
+    :param y_true: True target values
+    :type y_true: tensorflow.Tensor
+    :param y_pred: Predicted values
+    :type y_pred: tensorflow.Tensor
+    
+    :return: Mean Euclidean error (average distance) between the true and predicted values
+    :rtype: float
+    """
     return tf.reduce_mean(euclidean_error(y_true, y_pred))
 
 def mean_euclidean_error_scorer(y_true, y_pred):
+    """
+    Compute the mean Euclidean error (MEE) between the true and predicted values and return it as a float.
+
+    :param y_true: True target values
+    :type y_true: tensorflow.Tensor
+    :param y_pred: Predicted values
+    :type y_pred: tensorflow.Tensor
+    
+    :return: Mean Euclidean error (MEE) as a float value
+    :rtype: float
+    """
     mee = mean_euclidean_error(y_true=y_true, y_pred=y_pred)
     return mee.numpy()
 
 scorer = make_scorer(mean_euclidean_error_scorer, greater_is_better=False)
 
 def w_csv(data):
+    """
+    Write the given data to a CSV file with a custom header and specific formatting.
+
+    :param data: Data to be written to the CSV file. Each data point should have 3 dimensions.
+    :type data: list of tuples or lists, where each element contains 3 numerical values
+    
+    :return: None
+    :rtype: None
+    """
+
     teamname = "DUNEDAIN"
     filename = f"{teamname}_ML-CUP24-TS.csv"
 
@@ -224,4 +277,24 @@ def w_csv(data):
         raise Exception 
 
 def torch_mee(y_pred, y_true):
+    """
+    Compute the Mean Euclidean Error (MEE) between the true and predicted values using PyTorch.
+
+    :param y_pred: Predicted values from the model
+    :type y_pred: torch.Tensor
+    :param y_true: Actual ground truth values
+    :type y_true: torch.Tensor
+    
+    :return: Mean Euclidean Error (MEE)
+    :rtype: torch.Tensor
+    """
     return torch.mean(pairwise_distance(y_true, y_pred, p=2))
+
+def standardize_data(train_features, test_features, train_targets, test_targets):
+    scaler_features = StandardScaler()
+    scaler_targets = StandardScaler()
+    train_features = scaler_features.fit_transform(train_features)
+    test_features = scaler_features.transform(test_features)
+    train_targets = scaler_targets.fit_transform(train_targets)
+    test_targets = scaler_targets.transform(test_targets)
+    return train_features, test_features, train_targets, test_targets
