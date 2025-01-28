@@ -108,16 +108,16 @@ def plot_learning_curve(losses, val_losses, epochs, start_epoch=1, savefig=False
     :rtype: None
     """
     plt.plot(range(start_epoch, epochs), losses[start_epoch:])
-    plt.plot(range(start_epoch, epochs), val_losses[start_epoch:], ls = 'dashed')
+    plt.plot(range(start_epoch, epochs), val_losses[start_epoch:])
 
-    plt.xlabel("epoch", fontsize = 20)
-    plt.ylabel("loss", fontsize = 20)
-    plt.legend(['loss TR', 'loss VL'], fontsize = 20)
-    plt.title(f'PyTorch learning curve', fontsize = 20)
+    plt.xlabel("epoch")
+    plt.ylabel("loss")
+    plt.legend(['loss TR', 'loss VL'])
+    plt.title(f'PyTorch learning curve')
     #plt.yscale('log')
 
     if savefig:
-        plt.savefig("plot/NN_Torch.pdf", transparent = True)
+        plt.savefig("plot/NN_Torch.pdf")
 
     plt.show()
 
@@ -189,8 +189,7 @@ def fit(x_train, y_train, model, optimizer, validation_data = None, loss_fn=torc
     """
 
     # define a scheduler for variable eta (decaying learning rate)
-    # scheduler = optim.lr_scheduler.LinearLR(optimizer, start_factor = 1, end_factor = 1e-6, total_iters=400)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer)
+    scheduler = optim.lr_scheduler.LinearLR(optimizer, start_factor = 1, end_factor = 0.01, total_iters=400)
     # create the train_step function for our model, loss function and optimizer
     train_step = make_train_step(model, loss_fn, optimizer)
     losses = []
@@ -222,7 +221,7 @@ def fit(x_train, y_train, model, optimizer, validation_data = None, loss_fn=torc
             # performing one train step and returning the loss for each epoch
             loss = train_step(x_batch, y_batch)
             epoch_losses.append(loss)
-        scheduler.step(metrics = loss)
+        scheduler.step()
         losses.append(np.mean(epoch_losses))
 
         epoch_val_losses = []
@@ -344,21 +343,18 @@ def model_selection(features, targets, n_splits, epochs):
 
     # grid search parameters
     #eta = np.arange(start=0.003, stop=0.01, step=0.001)
-    eta = [0.0005, 0.005, 0.05, 0.5]
-    eta = [0.002, 0.005, 0.007]
+    eta = [0.005, 0.05, 0.5]
     eta = [float(round(i, 4)) for i in list(eta)]
 
     #alpha = np.arange(start=0.4, stop=1, step=0.1)
-    alpha = [0.6, 0.8, 1]
-    alpha = [0.7, 0.8, 0.9]
+    alpha = [0.2, 0.4, 0.6, 0.8]
     alpha = [float(round(i, 1)) for i in list(alpha)]
 
     #lmb = np.arange(start=0.0005, stop=0.001, step=0.0001)
-    lmb = [0.00005, 0.0001, 0.001]
-    lmb = [0.00007, 0.0001, 0.0005]
+    lmb = [0.00005, 0.0001, 0.001, 0.01]
     lmb = [float(round(i, 5)) for i in list(lmb)]
 
-    batch_size = [64, 128, 250]
+    batch_size = [32, 64, 128]
 
     param_grid = dict(eta=eta, alpha=alpha, lmb=lmb, batch_size = batch_size)
 
@@ -388,7 +384,7 @@ def model_selection(features, targets, n_splits, epochs):
     sorted_res = sorted(ms_result, key=lambda tup: (np.mean(tup[1], axis=0))[1])
     for (p, l, t) in sorted_res:
         scores = np.mean(l, axis=0)
-        #print("{} \t TR {:.4f} \t TS {:.4f} (Fit Time: {:.4f})".format(p, scores[0], scores[1], t))
+        print("{} \t TR {:.4f} \t TS {:.4f} (Fit Time: {:.4f})".format(p, scores[0], scores[1], t))
 
     min_loss = (np.mean(sorted_res[0][1], axis=0))[1]
     best_params = sorted_res[0][0]
@@ -429,7 +425,7 @@ def predict(model, x_test, y_test, x_outer):
     return y_outer_pred.detach().numpy(), iloss.item()
 
 
-def pytorch_nn(ms=True, n_splits=10 , epochs =500):
+def pytorch_nn(ms=True, n_splits=10 , epochs =2000):
     """
     Initializes and trains a PyTorch neural network model, with optional hyperparameter tuning via grid search.
 
@@ -447,14 +443,13 @@ def pytorch_nn(ms=True, n_splits=10 , epochs =500):
     filepath = abs_path("ML-CUP24-TR.csv", "data")
     # extracting features and targets from csv
     features, targets, features_test, targets_test = get_data(filepath, split = True)
-        # Standardize features and targets
-    features, features_test, targets, targets_test = standardize_data(features, features_test, targets, targets_test)
+
     # choose model selection or hand-given parameters
     if ms:
         logger.info("Choosing hyperparameters with a GridSearch")
         params = model_selection(features, targets, n_splits = n_splits, epochs = epochs)
     else:
-        params = dict(eta=0.005, alpha=0.8, lmb=0.0001, epochs=epochs, batch_size=128)
+        params = dict(eta=0.002, alpha=0.5, lmb=0.005, epochs=epochs, batch_size=64)
         logger.info(f"Parameters have been chosen manually: {params}")
 
     # create and fit the model
@@ -508,4 +503,4 @@ def pytorch_nn(ms=True, n_splits=10 , epochs =500):
     w_csv(y_pred_outer)
 
 if __name__ == '__main__':
-    pytorch_nn(ms= True)
+    pytorch_nn(ms= False)
