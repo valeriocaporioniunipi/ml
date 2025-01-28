@@ -10,7 +10,7 @@ from sklearn.svm import SVR
 from sklearn.model_selection import train_test_split
 from sklearn.multioutput import MultiOutputRegressor
 
-from utils import scorer, get_data, mean_euclidean_error, get_outer, abs_path, w_csv, euclidean_error
+from utils import scorer, get_data, mean_euclidean_error, get_outer, abs_path, w_csv, euclidean_error, standardize_data
 
 def model_selection(features, targets):
     # fix random seed for reproducibility
@@ -27,6 +27,7 @@ def model_selection(features, targets):
     param_grid = [{'estimator__kernel': ['rbf', 'linear', 'poly', 'sigmoid'],
                    'estimator__gamma': [1e-1, 1e-2, 1e-3, 1e-4, 'auto', 'scale'],
                    'estimator__C': [1e-3, 1e-2, 1e-1, 1, 10, 100],
+                   'estimator__degree': [2, 3, 4],
                    'estimator__epsilon': epsilon}]
 
     start_time = time.time()
@@ -48,11 +49,12 @@ def model_selection(features, targets):
     params = grid_result.cv_results_['params']
 
     for m_ts, t_ts, m_tr, t_tr, p in sorted(zip(means_test, times_test, means_train, times_train, params)):
-        print("{} \t TR {:.4f} (in {:.4f}) \t TS {:.4f} (in {:.4f})".format(p, m_tr, t_tr, m_ts, t_ts))
+        #print("{} \t TR {:.4f} (in {:.4f}) \t TS {:.4f} (in {:.4f})".format(p, m_tr, t_tr, m_ts, t_ts))
+        pass
 
     logger.info("Best: {:.4f} using {}\n".format(abs(grid.best_score_), grid_result.best_params_))
 
-    return grid.best_params_
+    return grid_result.best_params_
 
 def predict(model, features_test, targets_test, features_outer):
 
@@ -87,11 +89,11 @@ def plot_learning_curve(model, features, targets, savefig=False):
 
     fig2 = plt.figure()
     plt.plot(train_sizes, np.mean(np.abs(train_scores_svr), axis=1))
-    plt.plot(train_sizes, np.mean(np.abs(test_scores_svr), axis=1))
-    plt.xlabel("train size")
-    plt.ylabel("loss")
-    plt.legend(['loss TR', 'loss VL'])
-    plt.title(f'SVR learning curve \n {params}')
+    plt.plot(train_sizes, np.mean(np.abs(test_scores_svr), axis=1), ls= 'dashed')
+    plt.xlabel("train size", fontsize = 20)
+    plt.ylabel("loss", fontsize = 20)
+    plt.legend(['loss TR', 'loss VL'], fontsize = 20)
+    plt.title(f'SVR learning curve \n {params}', fontsize = 20)
 
     if savefig:
         plt.savefig("plot/sklearnSVM.pdf", transparent = True)
@@ -106,7 +108,7 @@ def sklearn_svm(ms=True):
 
     # read training set
     features, targets, features_test, targets_test = get_data(filepath, split = True)
-
+    features, features_test, targets, targets_test = standardize_data(features, features_test, targets, targets_test)
     # choose model selection or hand-given parameters
     if ms:
         logger.info("Choosing hyperparameters with a GridSearch")
@@ -147,4 +149,4 @@ def sklearn_svm(ms=True):
 
 
 if __name__ == '__main__':
-    sklearn_svm(ms = False)
+    sklearn_svm(ms = True)

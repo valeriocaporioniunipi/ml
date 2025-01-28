@@ -12,6 +12,7 @@ import tensorflow as tf
 from loguru import logger
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import make_scorer
+from sklearn.preprocessing import StandardScaler
 from torch.nn.functional import pairwise_distance
 
 def abs_path(local_filename, data_folder):
@@ -132,6 +133,14 @@ def monk_data(data_file_path):
 
     return X, y
 
+def standardize_data(train_features, test_features, train_targets, test_targets):
+    scaler_features = StandardScaler()
+    scaler_targets = StandardScaler()
+    train_features = scaler_features.fit_transform(train_features)
+    test_features = scaler_features.transform(test_features)
+    train_targets = scaler_targets.fit_transform(train_targets)
+    test_targets = scaler_targets.transform(test_targets)
+    return train_features, test_features, train_targets, test_targets
 
 def target_distribution(target, multitarget = False, show = False):
     """

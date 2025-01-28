@@ -273,4 +273,4 @@ def keras_network(ms = False, n_splits=5, epochs = 1000):
     w_csv(y_pred_outer)
 
 if __name__ == '__main__':
-    keras_network()
+    keras_network(ms = True)

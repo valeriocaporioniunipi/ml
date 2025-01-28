@@ -1,20 +1,25 @@
+from itertools import product
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
 import pandas as pd
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.model_selection import train_test_split
 from utils import monk_data, abs_path
-from itertools import product
 
 # Load MONK dataset
 features_test, targets_test = monk_data(abs_path('monks-3.test', 'data'))
 features, targets = monk_data(abs_path('monks-3.train', 'data'))
 
 # Standardize the features
-scaler = StandardScaler()
+scaler = OneHotEncoder(sparse_output=False)
 X_train = scaler.fit_transform(features)
 X_test = scaler.transform(features_test)
+
+X_train, X_val, y_train, y_val = train_test_split(
+    X_train, targets, test_size=0.2, random_state=42
+)
 
 # Convert labels to float (ensure they are 0 or 1)
 y_train = targets.astype(float).values.reshape(-1, 1)
@@ -45,9 +50,9 @@ def weights_init(m):
         nn.init.zeros_(m.bias)
 
 # Grid search parameters
-etas = [0.01, 0.001, 0.0001]
-lambdas = [0, 0.01, 0.1]
-alphas = [0.1, 0.5, 1.0]
+etas = [0.1, 0.05, 0.01, 0.005, 0.001, 0.0001]
+lambdas = [0.005, 0.01, 0.1]
+alphas = [0.001, 0.01, 0.1, 0.5, 1.0]
 best_model = None
 best_accuracy = 0
 
@@ -57,7 +62,7 @@ for eta, lambda_, alpha in product(etas, lambdas, alphas):
     criterion = nn.BCELoss()
     optimizer = optim.Adam(model.parameters(), lr=eta, weight_decay=lambda_)
     
-    epochs = 200
+    epochs = 1000
     for epoch in range(epochs):
         model.train()
         optimizer.zero_grad()
