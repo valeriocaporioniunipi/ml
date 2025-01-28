@@ -345,14 +345,17 @@ def model_selection(features, targets, n_splits, epochs):
     # grid search parameters
     #eta = np.arange(start=0.003, stop=0.01, step=0.001)
     eta = [0.0005, 0.005, 0.05, 0.5]
+    eta = [0.002, 0.005, 0.007]
     eta = [float(round(i, 4)) for i in list(eta)]
 
     #alpha = np.arange(start=0.4, stop=1, step=0.1)
     alpha = [0.6, 0.8, 1]
+    alpha = [0.7, 0.8, 0.9]
     alpha = [float(round(i, 1)) for i in list(alpha)]
 
     #lmb = np.arange(start=0.0005, stop=0.001, step=0.0001)
     lmb = [0.00005, 0.0001, 0.001]
+    lmb = [0.00007, 0.0001, 0.0005]
     lmb = [float(round(i, 5)) for i in list(lmb)]
 
     batch_size = [64, 128, 250]
@@ -505,4 +508,4 @@ def pytorch_nn(ms=True, n_splits=10 , epochs =500):
     w_csv(y_pred_outer)
 
 if __name__ == '__main__':
-    pytorch_nn(ms= False)
+    pytorch_nn(ms= True)
