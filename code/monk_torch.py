@@ -1,33 +1,39 @@
-from itertools import product
+import time
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
 import pandas as pd
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from utils import monk_data, abs_path
+from itertools import product
+from loguru import logger
 
 # Load MONK dataset
-features_test, targets_test = monk_data(abs_path('monks-3.test', 'data'))
-features, targets = monk_data(abs_path('monks-3.train', 'data'))
+features_test, targets_test = monk_data(abs_path('monks-1.test', 'data'))
+features, targets = monk_data(abs_path('monks-1.train', 'data'))
 
 # Standardize the features
-scaler = OneHotEncoder(sparse_output=False)
-X_train = scaler.fit_transform(features)
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(features)
 X_test = scaler.transform(features_test)
 
+# Split training data into train and validation sets
 X_train, X_val, y_train, y_val = train_test_split(
-    X_train, targets, test_size=0.2, random_state=42
+    X_scaled, targets, test_size=0.2, random_state=42
 )
 
 # Convert labels to float (ensure they are 0 or 1)
-y_train = targets.astype(float).values.reshape(-1, 1)
+y_train = y_train.astype(float).values.reshape(-1, 1)
+y_val = y_val.astype(float).values.reshape(-1, 1)
 y_test = targets_test.astype(float).values.reshape(-1, 1)
 
 # Convert data to PyTorch tensors
 X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
 y_train_tensor = torch.tensor(y_train, dtype=torch.float32)
+X_val_tensor = torch.tensor(X_val, dtype=torch.float32)
+y_val_tensor = torch.tensor(y_val, dtype=torch.float32)
 X_test_tensor = torch.tensor(X_test, dtype=torch.float32)
 y_test_tensor = torch.tensor(y_test, dtype=torch.float32)
 
@@ -47,20 +53,24 @@ class BinaryClassificationNN(nn.Module):
 def weights_init(m):
     if isinstance(m, nn.Linear):
         nn.init.xavier_uniform_(m.weight)
-        nn.init.zeros_(m.bias)
+        # nn.init.zeros_(m.bias)
 
 # Grid search parameters
-etas = [0.1, 0.05, 0.01, 0.005, 0.001, 0.0001]
-lambdas = [0.005, 0.01, 0.1]
-alphas = [0.001, 0.01, 0.1, 0.5, 1.0]
+etas = [0.9, 0.8, 0.7, 0.6]
+lambdas = [0, 0.001, 0.0001, 0.1, 0.01]
+alphas = [0.1, 0.3, 0.5, 1.0, 2.0, 3.0]
 best_model = None
 best_accuracy = 0
 
-for eta, lambda_, alpha in product(etas, lambdas, alphas):
+start_time = time.time()
+logger.info("Starting Grid Search for hyperparameter optimization")
+
+for eta, lmb, alpha in product(etas, lambdas, alphas):
     model = BinaryClassificationNN(X_train.shape[1], 16)
     model.apply(weights_init)
-    criterion = nn.BCELoss()
-    optimizer = optim.Adam(model.parameters(), lr=eta, weight_decay=lambda_)
+    criterion = nn.MSELoss()
+    optimizer = optim.SGD(model.parameters(), lr=eta, momentum=alpha, weight_decay=lmb)
+
     
     epochs = 1000
     for epoch in range(epochs):
@@ -73,33 +83,37 @@ for eta, lambda_, alpha in product(etas, lambdas, alphas):
     
     with torch.no_grad():
         model.eval()
-        test_outputs = model(X_test_tensor)
-        test_predicted = (test_outputs >= 0.5).float()
-        test_accuracy = (test_predicted == y_test_tensor).float().mean().item()
+        val_outputs = model(X_test_tensor)
+        val_predicted = (val_outputs >= 0.5).float()
+        val_accuracy = (val_predicted == y_test_tensor).float().mean().item()
 
-        if test_accuracy > best_accuracy:
-            best_accuracy = test_accuracy
-            best_model = model
-            best_params = {'eta': eta, 'lambda': lambda_, 'alpha': alpha}
+    if val_accuracy > best_accuracy:
+        best_accuracy = val_accuracy
+        best_params = {'eta': eta, 'lambda': lmb, 'alpha': alpha}
 
-print(f'Best Params: {best_params}, Best Accuracy: {best_accuracy:.4f}')
+end_time = time.time() 
+elapsed_time = end_time - start_time
+logger.info(f"Grid search concluded in {elapsed_time}")
+print(f'Best Params: {best_params}, Best Validation Accuracy: {best_accuracy:.4f}')
+
+best_model = BinaryClassificationNN(X_train.shape[1], 16)
+best_model.apply(weights_init)
 
 # Final training with best params
-optimizer = optim.Adam(best_model.parameters(), lr=best_params['eta'], weight_decay=best_params['lambda'])
-criterion = nn.BCELoss()
+best_optimizer = optim.SGD(best_model.parameters(), lr=best_params['eta'], weight_decay=best_params['lambda'], momentum=best_params['alpha'])
+criterion = nn.MSELoss()
 train_losses = []
 val_losses = []
 train_accuracies = []
 test_accuracies = []
-best_model.apply(weights_init)
 
 for epoch in range(epochs):
     best_model.train()
-    optimizer.zero_grad()
+    best_optimizer.zero_grad()
     train_outputs = best_model(X_train_tensor)
     train_loss = criterion(train_outputs, y_train_tensor)
     train_loss.backward()
-    optimizer.step()
+    best_optimizer.step()
     
     train_losses.append(train_loss.item())
     with torch.no_grad():
@@ -108,9 +122,11 @@ for epoch in range(epochs):
         train_accuracies.append(train_accuracy.item())
 
         best_model.eval()
+        val_outputs = best_model(X_val_tensor)
+        val_loss = criterion(val_outputs, y_val_tensor)
+        val_losses.append(val_loss.item())
+
         test_outputs = best_model(X_test_tensor)
-        test_loss = criterion(test_outputs, y_test_tensor)
-        val_losses.append(test_loss.item())
         test_predicted = (test_outputs >= 0.5).float()
         test_accuracy = (test_predicted == y_test_tensor).float().mean()
         test_accuracies.append(test_accuracy.item())
@@ -118,8 +134,8 @@ for epoch in range(epochs):
 plt.figure(figsize=(12, 5))
 plt.subplot(1, 2, 1)
 plt.plot(train_losses, label='Train Loss')
-plt.plot(val_losses, label='Test Loss', linestyle='--')
-plt.title('Train vs Test Loss')
+plt.plot(val_losses, label='Validation Loss', linestyle='--')
+plt.title('Train vs Validation Loss')
 plt.xlabel('Epoch')
 plt.ylabel('Loss')
 plt.legend()

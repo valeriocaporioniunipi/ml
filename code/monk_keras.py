@@ -3,7 +3,6 @@ import numpy as np
 import tensorflow as tf
 from loguru import logger
 from matplotlib import pyplot as plt
-from matplotlib import colormaps as cmaps
 from keras import Sequential
 from keras import optimizers
 from keras import metrics
@@ -13,7 +12,7 @@ from keras import regularizers
 from sklearn.model_selection import KFold, GridSearchCV
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import mean_squared_error, classification_report, accuracy_score
+from sklearn.metrics import mean_squared_error, classification_report
 from scikeras.wrappers import KerasClassifier
 
 from utils import monk_data, abs_path
@@ -31,30 +30,31 @@ def create_nn(input_shape,
                   init_mode = 'glorot_normal'
                   ):
     """
-    Create a neural network model using Keras API in order to solve a regression problem.
+    Create a simple feedforward neural network using Keras.
 
-    :param input_shape: shape of the data given to the input layer of the NN
-    :type input_shape: tuple
-    :param hidden_layers: optional(default = 3): number of hidden layers in the network
-    :type hidden_layers: int
-    :param hidden_nodes: optional(default = 32) number of nodes in each hidden layer
+    This function creates a neural network with a single hidden layer and compiles it 
+    using a stochastic gradient descent optimizer. The network is designed for binary 
+    classification tasks.
+
+    :param input_shape: The shape of the input data.
+    :type input_shape: int
+    :param hidden_nodes: Number of neurons in the hidden layer (default: 16).
     :type hidden_nodes: int
-    :param dropout: optional (default = 0.00): dropout rate of dropout layers
-    :type dropout: float
-    :param summary: optional (default = False): show the summary of the model
+    :param summary: Whether to display the model summary (default: False).
     :type summary: bool
-    :param activation: optional(default = 'relu') activation function to use
+    :param activation: Activation function to use in the hidden layer (default: 'relu').
     :type activation: str
-    :param eta: optional(default = 0.002) learning rate of the SGD
+    :param eta: Learning rate for the stochastic gradient descent optimizer (default: 0.002).
     :type eta: float
-    :param alpha: optional(default = 0.7) momentum of SGD
+    :param alpha: Momentum for the stochastic gradient descent optimizer (default: 0.7).
     :type alpha: float
-    :param lmb: optional(default = 0.0001) regularization parameter
+    :param lmb: L2 regularization parameter for the kernel weights (default: 0.0001).
     :type lmb: float
+    :param init_mode: Initialization method for the kernel weights (default: 'glorot_normal').
     :type init_mode: str
-    
-    :return: neural network model
-    :rtype: Sequential
+
+    :return: A compiled Keras Sequential model.
+    :rtype: keras.models.Sequential
     """
     model = Sequential()
 
@@ -82,17 +82,38 @@ def create_nn(input_shape,
     return model
 
 def model_selection(x, y, n_splits, epochs):
+
+    """
+    Perform hyperparameter optimization using grid search with cross-validation.
+
+    This function utilizes Keras models wrapped with scikeras for compatibility with 
+    scikit-learn's GridSearchCV, allowing efficient exploration of hyperparameter combinations 
+    to optimize model performance.
+
+    :param features: Input features for training.
+    :type features: numpy.ndarray
+    :param targets: Target values for training.
+    :type targets: numpy.ndarray
+    :param n_splits: Number of folds for K-Fold cross-validation.
+    :type n_splits: int
+    :param epochs: Number of epochs for training the model.
+    :type epochs: int
+
+    :return: Best hyperparameters identified by grid search.
+    :rtype: dict
+    """
+    
     
     input_shape = np.shape(x)[1]
     
     model = KerasClassifier(model=create_nn, input_shape = input_shape, epochs=epochs, batch_size= 25, verbose=0)
 
     # Setting the grid search parameters
-    eta = [0.05, 0.5]
+    eta = [0.5, 0.05, 0.005]
 
-    alpha = [0.4, 0.6]
+    alpha = [0.1, 0.4, 0.7, 1.0]
 
-    lmb = [0.001, 0.01]
+    lmb = [0, 0.1, 0.01]
 
     param_grid = dict(model__eta=eta, model__alpha=alpha, model__lmb=lmb)
 
@@ -100,7 +121,7 @@ def model_selection(x, y, n_splits, epochs):
     folds = KFold(n_splits=n_splits, shuffle=True, random_state=42)
 
     grid = GridSearchCV(estimator=model, param_grid=param_grid, scoring='neg_mean_squared_error', refit = 'accuracy',
-        cv = folds, n_jobs = 1, return_train_score=True, verbose = 0)
+        cv = folds, n_jobs = 8, return_train_score=True, verbose = 0)
 
     # Fitting grid search
     start_time = time.time()
@@ -109,7 +130,7 @@ def model_selection(x, y, n_splits, epochs):
 
     end_time =  time.time() 
     elapsed_time = end_time - start_time
-    logger.info(f"Grid search concluded {elapsed_time}")
+    logger.info(f"Grid search concluded in {elapsed_time}")
     best_params = grid_result.best_params_
 
     # Summarizing results
@@ -119,17 +140,19 @@ def model_selection(x, y, n_splits, epochs):
 
 def predict(model, features_test, targets_test):
     """
-    Predicts the test values and computes the metrics
+    Make predictions using the trained model and evaluate performance on test data.
 
-    :param model: model used for predictions
-    :param features_test: features to classify
-    :param targets_test: targets
-    
-    :return: 
-    targets_pred, predictions on test set
-    [test_loss], mean squared error on test set
-    [test_accuracy], accuracy on test set
-    
+    :param model: trained Keras model used for predictions
+    :type model: Sequential
+    :param features_test: features of the internal test set
+    :type features_test: numpy.ndarray
+    :param targets_test: true target values of the internal test set
+    :type targets_test: numpy.ndarray
+    :param features_outer: features of the outer test set for final predictions
+    :type features_outer: numpy.ndarray
+
+    :return: predictions on the outer test set and the loss on the internal test set
+    :rtype: tuple
     """
     # Prediction
     targets_pred = model.predict(features_test)
@@ -143,6 +166,25 @@ def predict(model, features_test, targets_test):
     return targets_pred, test_loss
 
 def plot_learning_curve(history_dic, dataset, start_epoch=1, end_epoch=400, savefig=False):
+    """
+    Plot the learning curve for training and validation losses.
+
+    This function visualizes the progression of the training and validation losses
+    across epochs in logarithmic scale, providing insights into the model's performance
+    during training.
+
+    :param history_dic: Dictionary containing training history with keys 'loss' and optionally 'val_loss'.
+                        Typically, this is `history.history` returned from `model.fit()`.
+    :type history_dic: dict
+    :param start_epoch: The epoch number at which the plot should start. Defaults to 1.
+    :type start_epoch: int
+    :param end_epoch: The epoch number at which the plot should end. Defaults to 400.
+    :type end_epoch: int
+    :param savefig: Whether to save the generated plot as a file. Defaults to False.
+    :type savefig: bool
+    
+    :return: None
+    """
 
     plt.plot(range(start_epoch, end_epoch), history_dic['loss'][start_epoch:])
     plt.plot(range(start_epoch, end_epoch), history_dic['val_loss'][start_epoch:])
@@ -156,6 +198,18 @@ def plot_learning_curve(history_dic, dataset, start_epoch=1, end_epoch=400, save
     plt.show()
 
 def plot_acc_curve(history_dic, dataset, start_epoch=1, end_epoch=400, savefig=False):
+    """
+    Plot the accuracy curve for training and validation sets.
+
+    :param history_dic: Dictionary containing the training history. Keys should include 'accuracy' and optionally 'val_accuracy'.
+    :type history_dic: dict
+    :param start_epoch: Starting epoch for the plot. Defaults to 1.
+    :type start_epoch: int
+    :param end_epoch: Ending epoch for the plot. Defaults to 400.
+    :type end_epoch: int
+    :param savefig: Whether to save the plot as a file. Defaults to False.
+    :type savefig: bool
+    """
 
     plt.plot(range(start_epoch, end_epoch), history_dic['accuracy'][start_epoch:])
     plt.plot(range(start_epoch, end_epoch), history_dic['val_accuracy'][start_epoch:])
@@ -168,7 +222,22 @@ def plot_acc_curve(history_dic, dataset, start_epoch=1, end_epoch=400, savefig=F
         plt.savefig(f"plot\keras{dataset}_acc", transparent = True)
     plt.show()
 
-def keras_network(ms = False, n_splits = 5, epochs = 140, dataset = 1):
+def keras_network(ms = False, n_splits = 5, epochs = 140, dataset = 2):
+    """
+    Train and evaluate a neural network model on one of the Monk datasets using Keras, with k-fold cross-validation.
+
+    :param ms: optional (default = False): If True, hyperparameters are selected using GridSearch.
+    :type ms: bool
+    :param n_splits: optional (default = 5): Number of splits for k-fold cross-validation.
+    :type n_splits: int
+    :param epochs: optional (default = 140): Number of epochs to train the model.
+    :type epochs: int
+    :param dataset: optional (default = 2): The dataset to use (1, 2, 3 for individual Monk datasets, or 'all' for all datasets).
+    :type dataset: int or str
+
+    :return: None
+    :rtype: None
+    """
     logger.info("Initializing Keras...")
 
     encoder = OneHotEncoder(sparse_output=False) 
@@ -293,8 +362,8 @@ def keras_network(ms = False, n_splits = 5, epochs = 140, dataset = 1):
 
         logger.info("Computation with Keras successfully ended!")
 
-        plot_learning_curve(history_dic=history.history, dataset = dataset, end_epoch=epochs, savefig=False)
-        plot_acc_curve(history_dic=fit.history, dataset = dataset, end_epoch=epochs, savefig=False)
+        plot_learning_curve(history_dic=history.history, dataset = dataset, end_epoch=epochs, savefig=True)
+        plot_acc_curve(history_dic=fit.history, dataset = dataset, end_epoch=epochs, savefig=True)
 
 if __name__ == '__main__':
-    keras_network()
+    keras_network(ms= True)

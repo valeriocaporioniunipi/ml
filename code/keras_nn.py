@@ -38,8 +38,6 @@ def create_nn(input_shape,
     :type hidden_layers: int
     :param hidden_nodes: optional(default = 32) number of nodes in each hidden layer
     :type hidden_nodes: int
-    :param dropout: optional (default = 0.00): dropout rate of dropout layers
-    :type dropout: float
     :param summary: optional (default = False): show the summary of the model
     :type summary: bool
     :param activation: optional(default = 'relu') activation function to use
@@ -81,7 +79,6 @@ def create_nn(input_shape,
     #     decay_steps,
     #     end_learning_rate,
     #     power=1.0  # Setted as one for linear decay
-# )
 
     # Adding optimizer for the model: # TODO change to learning_rate_fn for linear decay
     optimizer = optimizers.SGD(learning_rate=eta, momentum=alpha)
@@ -98,20 +95,35 @@ def create_nn(input_shape,
     return model
 
 def model_selection(features, targets, n_splits, epochs):
+    """
+    Perform hyperparameter optimization using grid search with cross-validation.
+
+    :param features: input features for training
+    :type features: numpy.ndarray
+    :param targets: target values for training
+    :type targets: numpy.ndarray
+    :param n_splits: number of folds for K-Fold cross-validation
+    :type n_splits: int
+    :param epochs: number of epochs for training
+    :type epochs: int
+
+    :return: best hyperparameters from grid search
+    :rtype: dict
+    """
     input_shape = np.shape(features[0])
     model = KerasRegressor(model=create_nn, input_shape = input_shape, epochs=epochs, batch_size=16, verbose=0)
 
     # grid search parameters
     #eta = np.arange(start=0.003, stop=0.01, step=0.001)
-    eta = [0.005, 0.05, 0.5]
+    eta = [0.0009, 0.001, 0.002, 0.003, 0.004]
     eta = [float(round(i, 4)) for i in list(eta)]
 
     #alpha = np.arange(start=0.4, stop=1, step=0.1)
-    alpha = [0.2, 0.4, 0.6, 0.8]
+    alpha = [0.2, 0.4, 0.6]
     alpha = [float(round(i, 1)) for i in list(alpha)]
 
     #lmb = np.arange(start=0.0005, stop=0.001, step=0.0001)
-    lmb = [0.00005, 0.0001, 0.001, 0.01]
+    lmb = [0.02, 0.01, 0.005, 0.001]
     lmb = [float(round(i, 4)) for i in list(lmb)]
 
     batch_size = [32, 64, 128]
@@ -122,7 +134,7 @@ def model_selection(features, targets, n_splits, epochs):
     kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
 
     grid = GridSearchCV(estimator=model, param_grid=param_grid, scoring=scorer, refit = False,
-        cv = kf, n_jobs = 2, return_train_score=True, verbose = 1)
+        cv = kf, n_jobs = 6, return_train_score=True, verbose = 1)
     
     # rescaling features
     scaler = StandardScaler()
@@ -143,6 +155,21 @@ def model_selection(features, targets, n_splits, epochs):
     return best_params
 
 def predict(model, features_test, targets_test, features_outer):
+    """
+    Make predictions using the trained model and evaluate performance on test data.
+
+    :param model: trained Keras model
+    :type model: Sequential
+    :param features_test: input features for internal test set
+    :type features_test: numpy.ndarray
+    :param targets_test: target values for internal test set
+    :type targets_test: numpy.ndarray
+    :param features_outer: input features for outer test set
+    :type features_outer: numpy.ndarray
+
+    :return: predictions for outer test set and loss for internal test set
+    :rtype: tuple
+    """
     # predict on internal test set of data
     internal_test_loss = euclidean_error(targets_test, model.predict(features_test))
     # predict on an outer test set
@@ -152,6 +179,18 @@ def predict(model, features_test, targets_test, features_outer):
 
 
 def plot_learning_curve(history_dic, start_epoch=1, end_epoch=400, savefig=False):
+    """
+    Plot the learning curve for training and validation losses.
+
+    :param history_dic: dictionary containing the training history
+    :type history_dic: dict
+    :param start_epoch: starting epoch for the plot
+    :type start_epoch: int
+    :param end_epoch: ending epoch for the plot
+    :type end_epoch: int
+    :param savefig: whether to save the plot as a file
+    :type savefig: bool
+    """
 
     lgd = ['loss TR']
     plt.plot(range(start_epoch, end_epoch), history_dic['loss'][start_epoch:])
@@ -171,6 +210,16 @@ def plot_learning_curve(history_dic, start_epoch=1, end_epoch=400, savefig=False
 
 
 def keras_network(ms = False, n_splits=5, epochs = 1000):
+    """
+    Train a Keras neural network with optional hyperparameter optimization and evaluate its performance.
+
+    :param ms: whether to perform model selection using grid search
+    :type ms: bool
+    :param n_splits: number of folds for K-Fold cross-validation
+    :type n_splits: int
+    :param epochs: number of training epochs
+    :type epochs: int
+    """
     logger.info("Initializing Keras...")
     # getting the absolute path to te file through utils function abs_path 
     filepath = abs_path("ML-CUP24-TR.csv", "data")

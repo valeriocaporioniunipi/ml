@@ -1,3 +1,4 @@
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -10,6 +11,17 @@ from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_sp
 from utils import monk_data, abs_path, scorer, mean_euclidean_error, euclidean_error
 
 def model_selection(features, targets):
+    """
+    Perform model selection using Grid Search to find the best hyperparameters for an SVC model.
+
+    :param features: input features for the model
+    :type features: numpy.ndarray or pandas.DataFrame
+    :param targets: actual target values for evaluation
+    :type targets: numpy.ndarray or pandas.DataFrame
+    
+    :return: best hyperparameters obtained from the grid search
+    :rtype: dict
+    """
     # fix random seed for reproducibility
     seed = 42
     np.random.seed(seed)
@@ -37,6 +49,7 @@ def model_selection(features, targets):
     # Grid results
     grid_results = SVC_grid.fit(features, targets)
     logger.info("Starting theGrid Search...")
+    start_time = time.time()
 
     #TODO select the number of active processors w n_jobs; -1 means that all processors are used
     grid = GridSearchCV(estimator=classifier, param_grid=SVC_params, n_jobs=2, cv=10,
@@ -44,7 +57,9 @@ def model_selection(features, targets):
 
     grid_results = grid.fit(features, targets)
 
-    logger.info(f"Grid Search ended successfully")
+    end_time =  time.time() 
+    elapsed_time = end_time - start_time
+    logger.info(f"Grid Search ended successfully in {elapsed_time}")
 
     # means_train = abs(grid_results.cv_results_['mean_train_score'])
     # means_test = abs(grid_results.cv_results_['mean_test_score'])
@@ -58,12 +73,40 @@ def model_selection(features, targets):
     return grid_results.best_params_
 
 def predict(model, features, targets):
+    """
+    Predict the target values using the given model and compute the evaluation metrics.
+
+    :param model: trained model to make predictions
+    :type model: Keras Sequential model or any other suitable trained model
+    :param features: input features for prediction
+    :type features: numpy.ndarray or pandas.DataFrame
+    :param targets: actual target values for evaluation
+    :type targets: numpy.ndarray or pandas.DataFrame
+    
+    :return: predicted values, Mean Squared Error (MSE) and accuracy of the model
+    :rtype: tuple (numpy.ndarray, float, float)
+    """
     predictions = model.predict(features)
     MSE = mean_squared_error(targets, predictions)
     accuracy = accuracy_score(targets, predictions)
     return predictions, MSE, accuracy
 
 def plot_learning_curve(model, x, y, savefig = False):
+    """
+    Plot the learning curve for the given model, showing training and validation losses.
+
+    :param model: trained model to evaluate the learning curve
+    :type model: scikit-learn estimator (e.g., SVC)
+    :param x: input features for training the model
+    :type x: numpy.ndarray or pandas.DataFrame
+    :param y: actual target values for training the model
+    :type y: numpy.ndarray or pandas.DataFrame
+    :param savefig: optional (default = False): whether to save the plot as a PDF file
+    :type savefig: bool
+    
+    :return: None
+    :rtype: None
+    """
     p = model.get_params()
     params = dict(kernel=p['kernel'], C=p['C'],
                   gamma=p['gamma'], class_weight = p['class_weight'])
@@ -75,13 +118,33 @@ def plot_learning_curve(model, x, y, savefig = False):
     plt.xlabel("train size")
     plt.ylabel("loss")
     plt.legend(['loss TR', 'loss VL'])
-    plt.title(f'SVC learning curve \n {params}')
+    plt.title(f'SVC learning curve for Monk 1 problem with \n {params}')
 
     if savefig:
         plt.savefig("plot/svc_3_learning.pdf", transparent = True)
     plt.show()
 
 def plot_accuracy(model, x, y, x_test, y_test, savefig = False):
+    """
+    Plot the accuracy curve for the given model, showing training and testing accuracy for different training sizes.
+
+    :param model: trained model to evaluate the accuracy curve
+    :type model: scikit-learn estimator (e.g., SVC)
+    :param x: input features for training the model
+    :type x: numpy.ndarray or pandas.DataFrame
+    :param y: actual target values for training the model
+    :type y: numpy.ndarray or pandas.DataFrame
+    :param x_test: input features for testing the model
+    :type x_test: numpy.ndarray or pandas.DataFrame
+    :param y_test: actual target values for testing the model
+    :type y_test: numpy.ndarray or pandas.DataFrame
+    :param savefig: optional (default = False): whether to save the plot as a PDF file
+    :type savefig: bool
+    
+    :return: None
+    :rtype: None
+    """
+
     p = model.get_params()
     params = dict(kernel=p['kernel'], C=p['C'],
                   gamma=p['gamma'], class_weight = p['class_weight'])
@@ -98,20 +161,26 @@ def plot_accuracy(model, x, y, x_test, y_test, savefig = False):
     plt.xlabel("train size")
     plt.ylabel("accuracy")
     plt.legend(['accuracy DV', 'accuracy TS'])
-    plt.title(f'SVC accuracy curve \n {params}')
+    plt.title(f'SVC accuracy curve for Monk 1 problem with \n {params}')
 
     if savefig:
         plt.savefig("plot/svc_3_accuracy.pdf", transparent = True)
     plt.show()
 
 def modeling_svm():
+    """
+    Perform modeling using an SVM classifier, evaluate the model, and generate learning and accuracy plots.
+
+    :return: None
+    :rtype: None
+    """
 
     # Encoder
     encoder = OneHotEncoder()
 
     # Getting the path to the file
-    data_path_train = abs_path('monks-3.train', 'data')
-    data_path_test = abs_path('monks-3.test', 'data')
+    data_path_train = abs_path('monks-1.train', 'data')
+    data_path_test = abs_path('monks-1.test', 'data')
 
     # Splitting and encoding the training data
     features, targets = monk_data(data_path_train)
