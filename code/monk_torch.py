@@ -5,7 +5,7 @@ import numpy as np
 import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.model_selection import train_test_split
 from utils import monk_data, abs_path
 from itertools import product
@@ -95,7 +95,7 @@ def model_selection(X_train_tensor, y_train_tensor, X_val_tensor, y_val_tensor):
         criterion = nn.BCELoss()
         optimizer = optim.Adam(model.parameters(), lr=eta, weight_decay=lmb)
         
-        epochs = 300
+        epochs = 120
         no_improve = 0
         min_val_loss = float('inf')
         
@@ -251,13 +251,17 @@ def torch_main():
     random.seed(42)
 
     # Load and preprocess data
-    features_test, targets_test = monk_data(abs_path('monks-3.test', 'data'))
-    features, targets = monk_data(abs_path('monks-3.train', 'data'))
+    features_test, targets_test = monk_data(abs_path('monks-1.test', 'data'))
+    features, targets = monk_data(abs_path('monks-1.train', 'data'))
     
     # Apply one-hot encoding to features
     encoder = OneHotEncoder(sparse_output=False)
     X_encoded = encoder.fit_transform(features)
     X_test_encoded = encoder.transform(features_test)
+    # Standardize the features
+    scaler = StandardScaler()
+    X_encoded = scaler.fit_transform(X_encoded)
+    X_test_encoded = scaler.transform(X_test_encoded)
     
     # Split training data with stratification
     X_train, X_val, y_train, y_val = train_test_split(
